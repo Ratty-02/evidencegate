@@ -44,6 +44,7 @@ class RealPayPalClient:
         self._http = httpx.Client(base_url=self.base_url, timeout=30.0, transport=transport)
         self._token: str | None = None
         self._expires_at = 0.0
+        self.scopes: list[str] = []  # OAuth scopes granted to this app
 
     def access_token(self) -> str:
         if not self.client_id or not self.client_secret:
@@ -60,6 +61,7 @@ class RealPayPalClient:
             raise PayPalError(f"token request failed: HTTP {response.status_code}")
         body = response.json()
         self._token = body["access_token"]
+        self.scopes = body.get("scope", "").split()
         self._expires_at = time.time() + int(body.get("expires_in", 3000))
         return self._token
 

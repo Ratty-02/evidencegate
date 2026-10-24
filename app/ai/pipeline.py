@@ -13,7 +13,6 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from app import db
 from app.ai.schemas import Draft
 from app.paypal.mock_client import MockPayPalClient
 from app.rules.grounding import (
@@ -60,7 +59,7 @@ def load_records(dispute_id: str, paypal, merchant_records: dict | None = None):
     """Return (dispute, records) where records merges PayPal and merchant data."""
     dispute = paypal.get_dispute(dispute_id)
     base = paypal.get_records(dispute)
-    extra = db.get_records(dispute_id) if merchant_records is None else merchant_records
+    extra = merchant_records or {}
     merged = {rid: dict(fields) for rid, fields in base.items()}
     for rid, fields in extra.items():
         merged.setdefault(rid, {}).update(fields)

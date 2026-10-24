@@ -23,8 +23,18 @@
         <a href="/disputes" class="{{ 'on' if request.url.path.startswith('/disputes') }}">Case board</a>
       </div>
       <span class="live"><i></i>{{ 'Mock PayPal data' if is_mock() else 'PayPal sandbox' }}</span>
+      {% if request.state.user is defined and request.state.user %}
+      <div class="account">
+        <span class="avatar" title="{{ request.state.user.email }}">{{ request.state.user.email[0]|upper }}</span>
+        <form method="post" action="/logout"><button class="btn btn-ghost btn-sm" type="submit">Sign out</button></form>
+      </div>
+      {% else %}
+      <a class="btn btn-primary btn-sm" href="/login">Sign in</a>
+      {% endif %}
     </nav>
   </header>
+
+  {% if notice %}<div class="toast" role="status" data-toast><span class="toast-dot"></span>{{ notice }}</div>{% endif %}
 
   <main class="stage">{% block content %}{% endblock %}</main>
 

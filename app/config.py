@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from dotenv import load_dotenv
 
@@ -14,8 +15,12 @@ PAYPAL_ENV = os.getenv("PAYPAL_ENV", "sandbox")
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
 PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET", "")
 PAYPAL_WEBHOOK_ID = os.getenv("PAYPAL_WEBHOOK_ID", "")
-APP_USER = os.getenv("APP_USER", "admin")
-APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+# Signs session cookies. Set a long random value in production. If unset, a
+# random value is generated at startup, which signs everyone out on restart.
+SESSION_SECRET = os.getenv("SESSION_SECRET") or secrets.token_urlsafe(32)
+SESSION_MAX_AGE_DAYS = int(os.getenv("SESSION_MAX_AGE_DAYS", "7"))
+# Set true when served over HTTPS (for example on Render).
+COOKIE_SECURE = _flag("COOKIE_SECURE", "false")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")

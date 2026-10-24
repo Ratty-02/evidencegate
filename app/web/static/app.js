@@ -89,3 +89,10 @@
     }
   });
 })();
+
+// Confirmation toasts fade out on their own
+(function () {
+  var toast = document.querySelector('[data-toast]');
+  if (!toast) return;
+  setTimeout(function () { toast.classList.add('out'); }, 3800);
+})();

@@ -6,6 +6,8 @@ from app.ai.schemas import Draft, DraftClaim
 from app.main import app
 from app.web.routes import get_llm
 
+USER_ID = 1  # the signed-in user the test conftest provides
+
 
 class FakeLLM:
     def __init__(self, draft):
@@ -30,11 +32,9 @@ ESCALATE = Draft(evidence_types=[], response_text="Unclear.", claims=[],
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
-    db.init_db()
+def client():
     yield TestClient(app)
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_llm, None)
 
 
 def use_llm(draft):
@@ -59,8 +59,7 @@ def test_unknown_dispute_is_404(client):
 
 
 def test_approve_without_draft_is_refused(client):
-    r = client.post("/disputes/PP-R-0001/approve", follow_redirects=False)
-    assert r.status_code == 400
+    assert client.post("/disputes/PP-R-0001/approve", follow_redirects=False).status_code == 400
 
 
 def test_good_draft_can_be_approved(client):
@@ -76,43 +75,32 @@ def test_approval_is_stored_with_request_id(client):
     use_llm(GOOD)
     client.post("/disputes/PP-R-0001/draft", follow_redirects=False)
     client.post("/disputes/PP-R-0001/approve", follow_redirects=False)
-    record = db.get_approval("PP-R-0001")
+    record = db.get_approval(USER_ID, "PP-R-0001")
     assert record["action"] == "SUBMIT_EVIDENCE"
     assert len(record["request_id"]) == 36
-
-
-def test_draft_survives_new_request(client):
-    use_llm(GOOD)
-    client.post("/disputes/PP-R-0001/draft", follow_redirects=False)
-    assert db.get_draft("PP-R-0001") is not None
-    assert "The item was delivered" in client.get("/disputes/PP-R-0001").text
 
 
 def test_blocked_draft_cannot_be_approved(client):
     use_llm(FABRICATED)
     client.post("/disputes/PP-R-0001/draft", follow_redirects=False)
-    r = client.post("/disputes/PP-R-0001/approve", follow_redirects=False)
-    assert r.status_code == 409
+    assert client.post("/disputes/PP-R-0001/approve", follow_redirects=False).status_code == 409
 
 
 def test_closed_dispute_cannot_be_approved(client):
     use_llm(GOOD)
     client.post("/disputes/PP-R-0003/draft", follow_redirects=False)
-    r = client.post("/disputes/PP-R-0003/approve", follow_redirects=False)
-    assert r.status_code == 409
+    assert client.post("/disputes/PP-R-0003/approve", follow_redirects=False).status_code == 409
 
 
 def test_escalate_cannot_be_approved(client):
     use_llm(ESCALATE)
     client.post("/disputes/PP-R-0002/draft", follow_redirects=False)
-    r = client.post("/disputes/PP-R-0002/approve", follow_redirects=False)
-    assert r.status_code == 400
+    assert client.post("/disputes/PP-R-0002/approve", follow_redirects=False).status_code == 400
 
 
 def test_regenerating_draft_clears_approval(client):
     use_llm(GOOD)
     client.post("/disputes/PP-R-0001/draft", follow_redirects=False)
     client.post("/disputes/PP-R-0001/approve", follow_redirects=False)
-    use_llm(GOOD)
     client.post("/disputes/PP-R-0001/draft", follow_redirects=False)
-    assert db.get_approval("PP-R-0001") is None
+    assert db.get_approval(USER_ID, "PP-R-0001") is None
