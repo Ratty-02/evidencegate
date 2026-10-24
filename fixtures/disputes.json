@@ -1,0 +1,35 @@
+[
+  {
+    "id": "PP-R-0001",
+    "status": "WAITING_FOR_SELLER_RESPONSE",
+    "reason": "ITEM_NOT_RECEIVED",
+    "amount": "49.00",
+    "currency": "USD",
+    "transaction_id": "TXN-1001",
+    "deadline": "2026-11-02",
+    "links": [{"rel": "detail"}, {"rel": "provide-evidence"}],
+    "record_ids": ["TXN-1001", "TRK-1001"]
+  },
+  {
+    "id": "PP-R-0002",
+    "status": "WAITING_FOR_SELLER_RESPONSE",
+    "reason": "ITEM_NOT_RECEIVED",
+    "amount": "120.00",
+    "currency": "USD",
+    "transaction_id": "TXN-1002",
+    "deadline": "2026-11-05",
+    "links": [{"rel": "detail"}, {"rel": "provide-evidence"}],
+    "record_ids": ["TXN-1002", "TRK-1002"]
+  },
+  {
+    "id": "PP-R-0003",
+    "status": "RESOLVED",
+    "reason": "ITEM_NOT_RECEIVED",
+    "amount": "35.00",
+    "currency": "USD",
+    "transaction_id": "TXN-1003",
+    "deadline": "2026-10-20",
+    "links": [{"rel": "detail"}],
+    "record_ids": ["TXN-1003"]
+  }
+]

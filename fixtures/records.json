@@ -1,0 +1,7 @@
+{
+  "TXN-1001": {"amount": "49.00", "currency": "USD", "order_date": "2026-10-01", "buyer": "buyer1@example.com"},
+  "TRK-1001": {"carrier": "FEDEX", "tracking_number": "122533485", "status": "DELIVERED", "delivered_on": "2026-10-06"},
+  "TXN-1002": {"amount": "120.00", "currency": "USD", "order_date": "2026-10-03", "buyer": "buyer2@example.com"},
+  "TRK-1002": {"carrier": "UPS", "tracking_number": "1Z999AA10123456784", "status": "IN_TRANSIT", "last_scan": "2026-10-10"},
+  "TXN-1003": {"amount": "35.00", "currency": "USD", "order_date": "2026-09-20", "buyer": "buyer3@example.com"}
+}
