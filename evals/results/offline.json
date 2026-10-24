@@ -1,0 +1,190 @@
+{
+  "summary": {
+    "injected_total": 10,
+    "injected_caught": 10,
+    "clean_total": 2,
+    "clean_passed": 2,
+    "routing_total": 1,
+    "routing_correct": 1,
+    "by_error": {
+      "wrong_value": {
+        "total": 3,
+        "caught": 3
+      },
+      "fabricated_record": {
+        "total": 1,
+        "caught": 1
+      },
+      "unknown_field": {
+        "total": 1,
+        "caught": 1
+      },
+      "uncovered_sentence": {
+        "total": 2,
+        "caught": 2
+      },
+      "overstated_status": {
+        "total": 1,
+        "caught": 1
+      },
+      "closed_dispute": {
+        "total": 2,
+        "caught": 2
+      }
+    },
+    "all_cases_passed": true
+  },
+  "cases": [
+    {
+      "id": "0001-clean",
+      "kind": "clean",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": []
+    },
+    {
+      "id": "0001-wrong-amount",
+      "kind": "injected",
+      "error": "wrong_value",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
+      "id": "0001-wrong-delivery-date",
+      "kind": "injected",
+      "error": "wrong_value",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
+      "id": "0001-fabricated-record",
+      "kind": "injected",
+      "error": "fabricated_record",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNSUPPORTED"
+      ]
+    },
+    {
+      "id": "0001-unknown-field",
+      "kind": "injected",
+      "error": "unknown_field",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNSUPPORTED"
+      ]
+    },
+    {
+      "id": "0001-uncovered-sentence",
+      "kind": "injected",
+      "error": "uncovered_sentence",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNCOVERED_SENTENCE"
+      ]
+    },
+    {
+      "id": "0001-dropped-claim",
+      "kind": "injected",
+      "error": "uncovered_sentence",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNCOVERED_SENTENCE"
+      ]
+    },
+    {
+      "id": "0002-clean-accept",
+      "kind": "clean",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "ACCEPT_CLAIM",
+      "passed": true,
+      "issues": []
+    },
+    {
+      "id": "0002-overstated-delivery",
+      "kind": "injected",
+      "error": "overstated_status",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
+      "id": "0002-wrong-amount",
+      "kind": "injected",
+      "error": "wrong_value",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
+      "id": "0002-escalate",
+      "kind": "routing",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "HUMAN_REVIEW",
+      "passed": true,
+      "issues": []
+    },
+    {
+      "id": "0003-closed-fight",
+      "kind": "injected",
+      "error": "closed_dispute",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "STATUS_NOT_ACTIONABLE",
+        "EVIDENCE_LINK_MISSING"
+      ]
+    },
+    {
+      "id": "0003-closed-accept",
+      "kind": "injected",
+      "error": "closed_dispute",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "ACCEPT_CLAIM",
+      "passed": true,
+      "issues": [
+        "STATUS_NOT_ACTIONABLE"
+      ]
+    }
+  ]
+}

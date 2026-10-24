@@ -1,5 +1,5 @@
-"""Draft pipeline: load a dispute, ask the model for a draft, then run the
-deterministic checks before anything can be approved.
+"""Draft pipeline: ask the model for a draft, then run deterministic checks
+before anything can be approved.
 
 Recommendation -> action:
   FIGHT    -> SUBMIT_EVIDENCE  (rules, claim grounding, and sentence coverage)
@@ -50,12 +50,12 @@ def build_user_message(dispute: dict, records: dict[str, dict]) -> str:
     return json.dumps({"dispute": dispute, "records": records}, indent=2)
 
 
-def run_draft(dispute_id: str, llm, paypal=None) -> Report:
+def check_draft(dispute_id: str, draft: Draft, paypal=None) -> Report:
+    """Run every deterministic check on a draft. No model call."""
     paypal = paypal or MockPayPalClient()
     dispute = paypal.get_dispute(dispute_id)
     records = paypal.get_records(dispute)
 
-    draft = llm.draft(PROMPT, build_user_message(dispute, records))
     action = ACTION_FOR[draft.recommendation]
     evidence_types = [normalize_evidence_type(t) for t in draft.evidence_types]
     claims = [Claim(c.statement, c.record_id, c.field, c.value) for c in draft.claims]
@@ -70,12 +70,21 @@ def run_draft(dispute_id: str, llm, paypal=None) -> Report:
     elif action == ACCEPT_CLAIM:
         rules = check_status(dispute)
         blocked = not rules.ok
-    else:  # HUMAN_REVIEW: nothing is sent, so nothing can be blocked from sending
+    else:  # HUMAN_REVIEW: nothing is sent
         rules = check_status(dispute)
         blocked = False
 
     return Report(dispute_id, draft, action, evidence_types, rules,
                   claim_results, uncovered, blocked)
+
+
+def run_draft(dispute_id: str, llm, paypal=None) -> Report:
+    """Ask the model for a draft, then check it."""
+    paypal = paypal or MockPayPalClient()
+    dispute = paypal.get_dispute(dispute_id)
+    records = paypal.get_records(dispute)
+    draft = llm.draft(PROMPT, build_user_message(dispute, records))
+    return check_draft(dispute_id, draft, paypal)
 
 
 def status_line(report: Report) -> str:

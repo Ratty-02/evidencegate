@@ -1,4 +1,4 @@
-﻿from app.ai.pipeline import build_user_message, format_report, run_draft
+from app.ai.pipeline import build_user_message, format_report, run_draft
 from app.ai.schemas import Draft, DraftClaim
 from app.paypal.mock_client import MockPayPalClient
 
@@ -72,4 +72,3 @@ def test_user_message_is_valid_json_with_both_sections():
     payload = json.loads(build_user_message(dispute, client.get_records(dispute)))
     assert set(payload) == {"dispute", "records"}
     assert "TRK-1002" in payload["records"]
-
