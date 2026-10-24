@@ -3,11 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>EvidenceGate</title>
+  <title>{% block title %}EvidenceGate{% endblock %} · EvidenceGate</title>
+  <meta name="description" content="Gate the Guesswork. EvidenceGate checks every claim in a payment dispute response before it goes out.">
+  <link rel="icon" href="/static/img/logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header><a href="/"><strong>EvidenceGate</strong></a> <span class="muted">mock PayPal data</span></header>
-  <main>{% block content %}{% endblock %}</main>
+  <div class="progress" id="scroll-progress"></div>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/"><img src="/static/img/logo-lockup.png" alt="EvidenceGate"></a>
+      <nav class="nav-links">
+        <a href="/" class="{{ 'active' if request.url.path == '/' }}">Home</a>
+        <a href="/disputes" class="{{ 'active' if request.url.path.startswith('/disputes') }}">Disputes</a>
+      </nav>
+      <a class="btn btn-primary btn-sm" href="/disputes">Open inbox</a>
+    </div>
+  </header>
+  <main class="page">{% block content %}{% endblock %}</main>
+  <footer class="footer">
+    <span><strong>EvidenceGate</strong> · Prototype using mock PayPal data</span>
+    <span class="tagline-foot">Gate the Guesswork</span>
+  </footer>
+  <script src="/static/app.js"></script>
 </body>
 </html>

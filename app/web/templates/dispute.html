@@ -1,52 +1,119 @@
 {% extends "base.html" %}
+{% block title %}{{ dispute.id }}{% endblock %}
 {% block content %}
-<h1>{{ dispute.id }}</h1>
-<p>Status: {{ dispute.status }} · Reason: {{ dispute.reason }} ·
-   Amount: {{ dispute.amount }} {{ dispute.currency }} · Deadline: {{ dispute.deadline }}</p>
+{% set action_labels = {'SUBMIT_EVIDENCE': 'Submit evidence', 'ACCEPT_CLAIM': 'Accept claim', 'HUMAN_REVIEW': 'Human review'} %}
+{% set rec_tones = {'FIGHT': 'green', 'ACCEPT': 'amber', 'ESCALATE': 'teal'} %}
 
-<form method="post" action="/disputes/{{ dispute.id }}/draft">
-  <button type="submit">{{ 'Regenerate draft' if report else 'Generate draft' }}</button>
-</form>
+<nav class="crumbs"><a href="/disputes">Disputes</a><span>/</span><span>{{ dispute.id }}</span></nav>
+
+<section class="page-head reveal">
+  <div>
+    <span class="eyebrow">{{ dispute.reason|replace('_', ' ')|capitalize }}</span>
+    <h1>{{ dispute.id }}</h1>
+    <p class="muted">{{ dispute.amount }} {{ dispute.currency }} · Deadline {{ dispute.deadline }}</p>
+  </div>
+  <div class="head-pills">
+    <span class="pill pill-{{ dispute.deadline_tone }}">
+      {% if not dispute.is_open %}Closed{% elif dispute.days_left < 0 %}Deadline passed{% else %}{{ dispute.days_left }} days left{% endif %}
+    </span>
+    <span class="pill pill-{{ 'green' if dispute.is_open else 'muted' }}">{{ dispute.status|replace('_', ' ')|capitalize }}</span>
+  </div>
+</section>
+
+<div class="toolbar reveal">
+  <form method="post" action="/disputes/{{ dispute.id }}/draft" data-loading="Checking draft…">
+    <button class="btn btn-primary" type="submit">{{ 'Regenerate draft' if report else 'Generate draft' }}</button>
+  </form>
+  <span class="muted small">The model drafts. The gate checks. Nothing is sent without your approval.</span>
+</div>
 
 {% if report %}
-  <h2>Recommendation: {{ report.draft.recommendation }}</h2>
-  <p>{{ report.draft.reason }}</p>
-  <p>Action: <strong>{{ report.action }}</strong></p>
-
-  {% if report.blocked %}<div class="banner blocked">Submission blocked. Fix the issues below before approving.</div>{% endif %}
-  {% if approved %}<div class="banner ok">Approved ({{ approved }}). Recorded only; not yet sent to PayPal.</div>{% endif %}
-
-  <h3>Response</h3>
-  <p>{{ report.draft.response_text }}</p>
-
-  {% if report.uncovered %}
-  <h3>Sentences with no source claim</h3>
-  <ul>{% for s in report.uncovered %}<li>{{ s }}</li>{% endfor %}</ul>
+  {% if approved %}
+  <div class="approved-card reveal">
+    <svg class="check" viewBox="0 0 52 52" aria-hidden="true">
+      <circle cx="26" cy="26" r="24"/>
+      <path d="M14 27 L22 35 L38 18"/>
+    </svg>
+    <div>
+      <strong>Approved: {{ action_labels[approved] }}</strong>
+      <p class="muted small">Recorded only; not yet sent to PayPal.</p>
+    </div>
+  </div>
+  {% elif report.blocked %}
+  <div class="alert alert-red reveal">Submission blocked. Fix the issues in the gate panel before approving.</div>
   {% endif %}
 
-  <h3>Claims</h3>
-  {% if report.claims %}
-  <table>
-    <thead><tr><th>Status</th><th>Statement</th><th>Check</th></tr></thead>
-    <tbody>
-    {% for r in report.claims %}
-      <tr class="claim-{{ r.status|lower }}"><td>{{ r.status }}</td><td>{{ r.claim.statement }}</td><td>{{ r.reason }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<p class="muted">No claims.</p>{% endif %}
+  <div class="detail-grid">
+    <div class="col-main">
+      <article class="card reveal">
+        <div class="card-head">
+          <h2>Drafted response</h2>
+          <span class="pill pill-{{ rec_tones[report.draft.recommendation] }}">{{ report.draft.recommendation }}</span>
+        </div>
+        <p class="reason">{{ report.draft.reason }}</p>
+        <blockquote class="response">{{ report.draft.response_text }}</blockquote>
 
-  <h3>Rules</h3>
-  {% if report.rules.ok %}<p>All checks passed.</p>{% else %}
-  <ul>{% for i in report.rules.issues %}<li><strong>{{ i.code }}</strong>: {{ i.message }}</li>{% endfor %}</ul>
-  {% endif %}
+        {% if report.uncovered %}
+        <div class="alert alert-amber">
+          <strong>Sentences with no source claim</strong>
+          <ul>{% for s in report.uncovered %}<li>{{ s }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+      </article>
 
-  {% if report.action != 'HUMAN_REVIEW' and not approved %}
-  <form method="post" action="/disputes/{{ dispute.id }}/approve">
-    <button type="submit" {% if report.blocked %}disabled{% endif %}>Approve {{ 'accept' if report.action == 'ACCEPT_CLAIM' else 'evidence' }}</button>
-  </form>
-  {% endif %}
+      <article class="card reveal delay-1">
+        <div class="card-head"><h2>Claims</h2><span class="muted small">{{ report.claims|selectattr('status', 'equalto', 'SUPPORTED')|list|length }} of {{ report.claims|length }} supported</span></div>
+        {% if report.claims %}
+        <ul class="claims">
+          {% for r in report.claims %}
+          <li class="claim claim-{{ r.status|lower }}" style="animation-delay: {{ loop.index0 * 90 }}ms">
+            <span class="claim-icon">{% if r.status == 'SUPPORTED' %}✓{% elif r.status == 'CONTRADICTED' %}✕{% else %}?{% endif %}</span>
+            <div>
+              <div class="claim-text">{{ r.claim.statement }}</div>
+              <div class="claim-why">{{ r.status|capitalize }} · {{ r.reason }}</div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}<p class="muted">No claims were made.</p>{% endif %}
+      </article>
+    </div>
+
+    <aside class="col-side">
+      <div class="card reveal delay-1">
+        <h2>Gate checks</h2>
+        {% if report.rules.ok %}
+          <p class="ok-text">✓ Rules passed</p>
+        {% else %}
+          <ul class="issues">
+            {% for i in report.rules.issues %}<li><strong>{{ i.code|replace('_', ' ')|capitalize }}</strong><span class="muted small">{{ i.message }}</span></li>{% endfor %}
+          </ul>
+        {% endif %}
+        <div class="meter"><span style="width: {{ (report.claims|selectattr('status', 'equalto', 'SUPPORTED')|list|length) * 100 // (report.claims|length or 1) }}%"></span></div>
+        <p class="muted small">Grounding: {{ report.claims|selectattr('status', 'equalto', 'SUPPORTED')|list|length }}/{{ report.claims|length }} claims match records. Uncovered sentences: {{ report.uncovered|length }}.</p>
+      </div>
+
+      <div class="card reveal delay-2">
+        <h2>Decision</h2>
+        <p>Action: <strong>{{ action_labels[report.action] }}</strong></p>
+        {% if approved %}
+          <p class="muted small">Approved. See the confirmation above.</p>
+        {% elif report.action == 'HUMAN_REVIEW' %}
+          <p class="muted">A person decides this one. Nothing is sent from here.</p>
+        {% else %}
+          <form method="post" action="/disputes/{{ dispute.id }}/approve">
+            <button class="btn btn-accept btn-block" type="submit" {% if report.blocked %}disabled{% endif %}>Approve {{ 'acceptance' if report.action == 'ACCEPT_CLAIM' else 'evidence' }}</button>
+          </form>
+          {% if report.blocked %}<p class="muted small">Approval unlocks when every check passes.</p>{% endif %}
+        {% endif %}
+      </div>
+    </aside>
+  </div>
 {% else %}
-  <p class="muted">No draft yet. Generate one to see the checks.</p>
+  <section class="empty card reveal">
+    <img class="float empty-mark" src="/static/img/logo-mark.png" alt="">
+    <h2>No draft yet</h2>
+    <p class="muted">Generate a draft to see the response, every claim's source check, and the gate result.</p>
+  </section>
 {% endif %}
 {% endblock %}

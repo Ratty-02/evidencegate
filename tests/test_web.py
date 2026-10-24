@@ -42,7 +42,7 @@ def use_llm(draft):
 
 
 def test_inbox_lists_disputes(client):
-    r = client.get("/")
+    r = client.get("/disputes")
     assert r.status_code == 200
     assert "PP-R-0001" in r.text
 
@@ -93,3 +93,10 @@ def test_regenerating_draft_clears_approval(client):
     use_llm(GOOD)
     client.post("/disputes/PP-R-0001/draft", follow_redirects=False)
     assert "PP-R-0001" not in routes.APPROVED
+
+
+def test_home_page_shows_tagline(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Gate the" in r.text
+    assert "Guesswork" in r.text

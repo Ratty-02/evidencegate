@@ -1,19 +1,49 @@
 {% extends "base.html" %}
+{% block title %}Disputes{% endblock %}
 {% block content %}
-<h1>Open disputes</h1>
-<table>
-  <thead><tr><th>ID</th><th>Reason</th><th>Amount</th><th>Deadline</th><th>Status</th><th>Approval</th></tr></thead>
-  <tbody>
-  {% for d in disputes %}
-    <tr>
-      <td><a href="/disputes/{{ d.id }}">{{ d.id }}</a></td>
-      <td>{{ d.reason }}</td>
-      <td>{{ d.amount }} {{ d.currency }}</td>
-      <td>{{ d.deadline }}</td>
-      <td>{{ d.status }}</td>
-      <td>{% if d.id in approved %}{{ approved[d.id] }}{% else %}-{% endif %}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% set states = {
+  'approved': ('Approved', 'green'),
+  'no-draft': ('No draft', 'muted'),
+  'blocked': ('Blocked', 'red'),
+  'review': ('Needs review', 'amber'),
+  'ready': ('Ready', 'teal')
+} %}
+<section class="page-head reveal">
+  <div>
+    <span class="eyebrow">Inbox</span>
+    <h1>Disputes</h1>
+    <p class="muted">Review drafts, check the gate, and approve only what passes.</p>
+  </div>
+</section>
+
+<section class="kpis">
+  <div class="kpi reveal"><span class="kpi-label">Open disputes</span><span class="kpi-value" data-count="{{ kpis.open }}">{{ kpis.open }}</span></div>
+  <div class="kpi reveal delay-1"><span class="kpi-label">Amount open</span><span class="kpi-value">{{ "{:,.2f}".format(kpis.at_stake) }}</span></div>
+  <div class="kpi reveal delay-2"><span class="kpi-label">Ready to approve</span><span class="kpi-value" data-count="{{ kpis.ready }}">{{ kpis.ready }}</span></div>
+  <div class="kpi reveal delay-3"><span class="kpi-label">Approved</span><span class="kpi-value" data-count="{{ kpis.approved }}">{{ kpis.approved }}</span></div>
+</section>
+
+<section class="card table-card reveal">
+  <table class="table">
+    <thead>
+      <tr><th>Dispute</th><th>Reason</th><th>Amount</th><th>Deadline</th><th>Draft</th></tr>
+    </thead>
+    <tbody>
+    {% for d in disputes %}
+      {% set s = states[d.state] %}
+      <tr class="row-link" onclick="location.href='/disputes/{{ d.id }}'">
+        <td><a href="/disputes/{{ d.id }}" class="id-link">{{ d.id }}</a></td>
+        <td>{{ d.reason|replace('_', ' ')|capitalize }}</td>
+        <td class="num-cell">{{ d.amount }} {{ d.currency }}</td>
+        <td>
+          <span class="pill pill-{{ d.deadline_tone }}">
+            {% if not d.is_open %}Closed{% elif d.days_left < 0 %}Passed{% else %}{{ d.days_left }}d left{% endif %}
+          </span>
+        </td>
+        <td><span class="pill pill-{{ s[1] }}">{{ s[0] }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endblock %}
