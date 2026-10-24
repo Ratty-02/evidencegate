@@ -100,3 +100,23 @@ class RealPayPalClient:
             request_id=request_id,
             json={"reason": reason, "note": note},
         )
+
+    def verify_webhook_signature(self, headers: dict, event: dict, webhook_id: str) -> bool:
+        """Ask PayPal whether a webhook's transmission signature is valid.
+
+        `headers` must use lowercase names. Endpoint from PayPal's webhook
+        verification API; not yet exercised against a live event.
+        """
+        if not webhook_id:
+            raise PayPalError("PAYPAL_WEBHOOK_ID is not set in .env")
+        body = {
+            "auth_algo": headers.get("paypal-auth-algo"),
+            "cert_url": headers.get("paypal-cert-url"),
+            "transmission_id": headers.get("paypal-transmission-id"),
+            "transmission_sig": headers.get("paypal-transmission-sig"),
+            "transmission_time": headers.get("paypal-transmission-time"),
+            "webhook_id": webhook_id,
+            "webhook_event": event,
+        }
+        result = self._request("POST", "/v1/notifications/verify-webhook-signature", json=body)
+        return result.get("verification_status") == "SUCCESS"

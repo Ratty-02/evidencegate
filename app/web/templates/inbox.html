@@ -1,49 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Disputes{% endblock %}
+{% block title %}Case board{% endblock %}
 {% block content %}
-{% set states = {
-  'approved': ('Approved', 'green'),
-  'no-draft': ('No draft', 'muted'),
-  'blocked': ('Blocked', 'red'),
-  'review': ('Needs review', 'amber'),
-  'ready': ('Ready', 'teal')
-} %}
-<section class="page-head reveal">
+{% set lanes = [
+  ('ready', 'Ready to approve', 'teal'),
+  ('review', 'Needs a human', 'amber'),
+  ('blocked', 'Blocked by gate', 'coral'),
+  ('no-draft', 'Awaiting draft', 'muted'),
+  ('approved', 'Approved', 'green')
+] %}
+
+<section class="board-head reveal">
   <div>
-    <span class="eyebrow">Inbox</span>
+    <span class="kicker">Case board</span>
     <h1>Disputes</h1>
-    <p class="muted">Review drafts, check the gate, and approve only what passes.</p>
+    <p class="muted">Every case moves through the gate. You decide what goes out.</p>
+  </div>
+  <div class="kpi-strip">
+    <div class="kpi"><span class="kpi-num" data-count="{{ kpis.open }}">{{ kpis.open }}</span><span class="kpi-label">open</span></div>
+    <div class="kpi"><span class="kpi-num">{{ "{:,.2f}".format(kpis.at_stake) }}</span><span class="kpi-label">amount open</span></div>
+    <div class="kpi"><span class="kpi-num" data-count="{{ kpis.ready }}">{{ kpis.ready }}</span><span class="kpi-label">ready</span></div>
+    <div class="kpi"><span class="kpi-num" data-count="{{ kpis.approved }}">{{ kpis.approved }}</span><span class="kpi-label">approved</span></div>
   </div>
 </section>
 
-<section class="kpis">
-  <div class="kpi reveal"><span class="kpi-label">Open disputes</span><span class="kpi-value" data-count="{{ kpis.open }}">{{ kpis.open }}</span></div>
-  <div class="kpi reveal delay-1"><span class="kpi-label">Amount open</span><span class="kpi-value">{{ "{:,.2f}".format(kpis.at_stake) }}</span></div>
-  <div class="kpi reveal delay-2"><span class="kpi-label">Ready to approve</span><span class="kpi-value" data-count="{{ kpis.ready }}">{{ kpis.ready }}</span></div>
-  <div class="kpi reveal delay-3"><span class="kpi-label">Approved</span><span class="kpi-value" data-count="{{ kpis.approved }}">{{ kpis.approved }}</span></div>
-</section>
+<div class="board">
+  {% for key, label, tone in lanes %}
+  <section class="lane lane-{{ tone }} reveal">
+    <header class="lane-head">
+      <span class="lane-dot"></span>
+      <h2>{{ label }}</h2>
+      <span class="lane-count">{{ disputes|selectattr('state', 'equalto', key)|list|length }}</span>
+    </header>
+    <div class="lane-body">
+      {% for d in disputes if d.state == key %}
+        <a class="case tone-{{ d.deadline_tone }}" href="/disputes/{{ d.id }}" style="--p: {{ d.pct }}">
+          <div class="case-top">
+            <span class="case-id">{{ d.id }}</span>
+            <span class="ring" title="Display scale: 14 days"><span>{{ d.ring_text }}</span></span>
+          </div>
+          <div class="case-title">{{ d.reason|replace('_', ' ')|capitalize }}</div>
+          <div class="case-foot">
+            <span class="amount">{{ d.amount }} {{ d.currency }}</span>
+            <span class="pill pill-{{ d.deadline_tone }}">{{ d.pill_text }}</span>
+          </div>
+        </a>
+      {% else %}
+        <p class="lane-empty">Nothing here</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
 
-<section class="card table-card reveal">
-  <table class="table">
-    <thead>
-      <tr><th>Dispute</th><th>Reason</th><th>Amount</th><th>Deadline</th><th>Draft</th></tr>
-    </thead>
-    <tbody>
-    {% for d in disputes %}
-      {% set s = states[d.state] %}
-      <tr class="row-link" onclick="location.href='/disputes/{{ d.id }}'">
-        <td><a href="/disputes/{{ d.id }}" class="id-link">{{ d.id }}</a></td>
-        <td>{{ d.reason|replace('_', ' ')|capitalize }}</td>
-        <td class="num-cell">{{ d.amount }} {{ d.currency }}</td>
-        <td>
-          <span class="pill pill-{{ d.deadline_tone }}">
-            {% if not d.is_open %}Closed{% elif d.days_left < 0 %}Passed{% else %}{{ d.days_left }}d left{% endif %}
-          </span>
-        </td>
-        <td><span class="pill pill-{{ s[1] }}">{{ s[0] }}</span></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</section>
+{% if not is_mock() and kpis.open == 0 %}
+<p class="empty-note">No open disputes in the PayPal sandbox yet. See docs/sandbox_limits.md for why, and how to create one.</p>
+{% endif %}
 {% endblock %}

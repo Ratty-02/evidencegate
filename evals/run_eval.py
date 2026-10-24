@@ -208,7 +208,7 @@ class CaseResult:
 def evaluate(cases: list[Case]) -> tuple[list[CaseResult], dict]:
     results = []
     for c in cases:
-        report = check_draft(c.dispute_id, c.draft)
+        report = check_draft(c.dispute_id, c.draft, merchant_records={})
         issues = [i.code for i in report.rules.issues]
         issues += [r.status for r in report.claims if r.status != "SUPPORTED"]
         if report.uncovered:

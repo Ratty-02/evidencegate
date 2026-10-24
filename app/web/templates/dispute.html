@@ -3,117 +3,175 @@
 {% block content %}
 {% set action_labels = {'SUBMIT_EVIDENCE': 'Submit evidence', 'ACCEPT_CLAIM': 'Accept claim', 'HUMAN_REVIEW': 'Human review'} %}
 {% set rec_tones = {'FIGHT': 'green', 'ACCEPT': 'amber', 'ESCALATE': 'teal'} %}
+{% set supported = report.claims|selectattr('status', 'equalto', 'SUPPORTED')|list|length if report else 0 %}
 
-<nav class="crumbs"><a href="/disputes">Disputes</a><span>/</span><span>{{ dispute.id }}</span></nav>
+<nav class="crumbs reveal"><a href="/disputes">Case board</a><span>›</span><span>{{ dispute.id }}</span></nav>
 
-<section class="page-head reveal">
+{% if error %}<div class="alert-block reveal">Records not saved: {{ error }}</div>{% endif %}
+
+<section class="case-hero reveal">
   <div>
-    <span class="eyebrow">{{ dispute.reason|replace('_', ' ')|capitalize }}</span>
+    <span class="kicker">{{ dispute.reason|replace('_', ' ')|capitalize }}</span>
     <h1>{{ dispute.id }}</h1>
-    <p class="muted">{{ dispute.amount }} {{ dispute.currency }} · Deadline {{ dispute.deadline }}</p>
+    <p class="muted">{{ dispute.amount }} {{ dispute.currency }} · deadline {{ dispute.deadline or 'not provided by PayPal' }}</p>
   </div>
-  <div class="head-pills">
-    <span class="pill pill-{{ dispute.deadline_tone }}">
-      {% if not dispute.is_open %}Closed{% elif dispute.days_left < 0 %}Deadline passed{% else %}{{ dispute.days_left }} days left{% endif %}
-    </span>
-    <span class="pill pill-{{ 'green' if dispute.is_open else 'muted' }}">{{ dispute.status|replace('_', ' ')|capitalize }}</span>
+  <div class="deadline-badge deadline-{{ dispute.deadline_tone }}">
+    <span class="db-num">{{ dispute.badge_num }}</span>
+    <span class="db-label">{{ dispute.badge_label }}</span>
   </div>
 </section>
 
-<div class="toolbar reveal">
-  <form method="post" action="/disputes/{{ dispute.id }}/draft" data-loading="Checking draft…">
-    <button class="btn btn-primary" type="submit">{{ 'Regenerate draft' if report else 'Generate draft' }}</button>
+{% set s1 = dispute.is_open %}
+{% set s2 = (report.rules.ok if report else none) %}
+{% set s3 = (supported == report.claims|length) if report else none %}
+{% set s4 = (not report.uncovered) if report else none %}
+{% set s5 = true if approved else none %}
+{% set stages = [('Dispute open', s1), ('File rules', s2), ('Claims grounded', s3), ('Sentences covered', s4), ('You approve', s5)] %}
+<ol class="pipeline reveal">
+  {% for label, s in stages %}
+    {% set cls = 'ok' if s is sameas true else ('fail' if s is sameas false else 'pending') %}
+    <li class="stage stage-{{ cls }}" style="--d: {{ loop.index0 * 120 }}ms">
+      <span class="stage-dot">{% if cls == 'ok' %}✓{% elif cls == 'fail' %}✕{% else %}{{ loop.index }}{% endif %}</span>
+      <span class="stage-label">{{ label }}</span>
+    </li>
+  {% endfor %}
+</ol>
+
+<section class="panel reveal">
+  <div class="panel-head">
+    <span class="kicker">Merchant records</span>
+    <span class="muted small">{{ record_count }} on file</span>
+  </div>
+  <p class="muted small">PayPal does not provide tracking or delivery proof. Paste your own records as CSV with the header <code>record_id,field,value</code>. Saving replaces the records for this dispute.</p>
+  {% if records %}
+  <ul class="record-list">
+    {% for rid, fields in records.items() %}
+      {% for f, v in fields.items() %}<li><code>{{ rid }}</code> · {{ f }} = <code>{{ v }}</code></li>{% endfor %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/disputes/{{ dispute.id }}/records" class="records-form">
+    <textarea name="csv_text" rows="5" class="csv" placeholder="record_id,field,value&#10;TRK-1001,status,DELIVERED"></textarea>
+    <div><button class="btn btn-ghost btn-sm" type="submit">Save records</button></div>
   </form>
-  <span class="muted small">The model drafts. The gate checks. Nothing is sent without your approval.</span>
-</div>
+</section>
 
 {% if report %}
+  <div class="toolbar reveal">
+    <form method="post" action="/disputes/{{ dispute.id }}/draft" data-loading="Drafting…">
+      <button class="btn btn-ghost btn-sm" type="submit">Regenerate draft</button>
+    </form>
+    <span class="muted small">The model drafts. The gate checks. Nothing is sent without your approval.</span>
+  </div>
+
   {% if approved %}
   <div class="approved-card reveal">
-    <svg class="check" viewBox="0 0 52 52" aria-hidden="true">
-      <circle cx="26" cy="26" r="24"/>
-      <path d="M14 27 L22 35 L38 18"/>
-    </svg>
+    <div class="burst" data-burst></div>
+    <svg class="check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M14 27 L22 35 L38 18"/></svg>
     <div>
       <strong>Approved: {{ action_labels[approved] }}</strong>
-      <p class="muted small">Recorded only; not yet sent to PayPal.</p>
+      <p>Recorded only; not yet sent to PayPal.</p>
     </div>
   </div>
   {% elif report.blocked %}
-  <div class="alert alert-red reveal">Submission blocked. Fix the issues in the gate panel before approving.</div>
+  <div class="alert-block reveal">Submission blocked. Fix the issues in the gate panel before approving.</div>
   {% endif %}
 
-  <div class="detail-grid">
-    <div class="col-main">
-      <article class="card reveal">
-        <div class="card-head">
-          <h2>Drafted response</h2>
+  {% set verdict = 'Approved' if approved else ('Blocked' if report.blocked else ('Human decision' if report.action == 'HUMAN_REVIEW' else 'Passed the gate')) %}
+  {% set vcls = 'done' if approved else ('block' if report.blocked else ('hold' if report.action == 'HUMAN_REVIEW' else 'pass')) %}
+
+  <div class="case-grid">
+    <div class="case-main">
+      <article class="panel reveal">
+        <div class="panel-head">
+          <span class="kicker">Drafted response</span>
           <span class="pill pill-{{ rec_tones[report.draft.recommendation] }}">{{ report.draft.recommendation }}</span>
         </div>
         <p class="reason">{{ report.draft.reason }}</p>
-        <blockquote class="response">{{ report.draft.response_text }}</blockquote>
-
+        <blockquote class="quote">{{ report.draft.response_text }}</blockquote>
         {% if report.uncovered %}
-        <div class="alert alert-amber">
-          <strong>Sentences with no source claim</strong>
+        <div class="warn">
+          <strong>Not backed by any claim</strong>
           <ul>{% for s in report.uncovered %}<li>{{ s }}</li>{% endfor %}</ul>
         </div>
         {% endif %}
       </article>
 
-      <article class="card reveal delay-1">
-        <div class="card-head"><h2>Claims</h2><span class="muted small">{{ report.claims|selectattr('status', 'equalto', 'SUPPORTED')|list|length }} of {{ report.claims|length }} supported</span></div>
-        {% if report.claims %}
-        <ul class="claims">
+      <article class="panel reveal delay-1">
+        <div class="panel-head">
+          <span class="kicker">Evidence</span>
+          <span class="muted small">{{ supported }} of {{ report.claims|length }} grounded</span>
+        </div>
+        <ul class="evidence">
           {% for r in report.claims %}
-          <li class="claim claim-{{ r.status|lower }}" style="animation-delay: {{ loop.index0 * 90 }}ms">
-            <span class="claim-icon">{% if r.status == 'SUPPORTED' %}✓{% elif r.status == 'CONTRADICTED' %}✕{% else %}?{% endif %}</span>
-            <div>
-              <div class="claim-text">{{ r.claim.statement }}</div>
-              <div class="claim-why">{{ r.status|capitalize }} · {{ r.reason }}</div>
+          <li class="ev ev-{{ r.status|lower }}" style="--d: {{ loop.index0 * 90 }}ms">
+            <span class="ev-status">{{ r.status|capitalize }}</span>
+            <div class="ev-body">
+              <p class="ev-statement">{{ r.claim.statement }}</p>
+              <p class="ev-src">{% if r.claim.record_id %}<code>{{ r.claim.record_id }}</code> · {{ r.claim.field }} = <code>{{ r.claim.value }}</code>{% else %}no source record{% endif %}</p>
+              <p class="ev-why">{{ r.reason }}</p>
             </div>
           </li>
+          {% else %}
+          <li class="muted">No claims were made.</li>
           {% endfor %}
         </ul>
-        {% else %}<p class="muted">No claims were made.</p>{% endif %}
       </article>
     </div>
 
-    <aside class="col-side">
-      <div class="card reveal delay-1">
-        <h2>Gate checks</h2>
-        {% if report.rules.ok %}
-          <p class="ok-text">✓ Rules passed</p>
-        {% else %}
-          <ul class="issues">
-            {% for i in report.rules.issues %}<li><strong>{{ i.code|replace('_', ' ')|capitalize }}</strong><span class="muted small">{{ i.message }}</span></li>{% endfor %}
-          </ul>
-        {% endif %}
-        <div class="meter"><span style="width: {{ (report.claims|selectattr('status', 'equalto', 'SUPPORTED')|list|length) * 100 // (report.claims|length or 1) }}%"></span></div>
-        <p class="muted small">Grounding: {{ report.claims|selectattr('status', 'equalto', 'SUPPORTED')|list|length }}/{{ report.claims|length }} claims match records. Uncovered sentences: {{ report.uncovered|length }}.</p>
+    <aside class="case-side">
+      <div class="verdict verdict-{{ vcls }} reveal">
+        <span class="kicker">Gate verdict</span>
+        <strong class="verdict-text">{{ verdict }}</strong>
       </div>
 
-      <div class="card reveal delay-2">
-        <h2>Decision</h2>
+      <div class="panel reveal delay-1">
+        <div class="panel-head"><span class="kicker">Rules</span></div>
+        {% if report.rules.ok %}
+          <p class="ok-text">✓ All file and status rules pass</p>
+        {% else %}
+          <ul class="issues">
+            {% for i in report.rules.issues %}
+            <li><strong>{{ i.code|replace('_', ' ')|capitalize }}</strong><span class="muted small">{{ i.message }}</span></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <div class="meter"><span style="width: {{ (supported * 100 // (report.claims|length or 1)) }}%"></span></div>
+        <p class="muted small">Uncovered sentences: {{ report.uncovered|length }}</p>
+      </div>
+
+      <div class="panel reveal delay-2">
+        <div class="panel-head"><span class="kicker">Decision</span></div>
         <p>Action: <strong>{{ action_labels[report.action] }}</strong></p>
+        {% if report.warnings %}
+        <div class="warn">{% for w in report.warnings %}<p>{{ w }}</p>{% endfor %}</div>
+        {% endif %}
         {% if approved %}
           <p class="muted small">Approved. See the confirmation above.</p>
         {% elif report.action == 'HUMAN_REVIEW' %}
           <p class="muted">A person decides this one. Nothing is sent from here.</p>
+        {% elif report.blocked %}
+          <div class="slide slide-off">Approval unlocks when every check passes</div>
         {% else %}
-          <form method="post" action="/disputes/{{ dispute.id }}/approve">
-            <button class="btn btn-accept btn-block" type="submit" {% if report.blocked %}disabled{% endif %}>Approve {{ 'acceptance' if report.action == 'ACCEPT_CLAIM' else 'evidence' }}</button>
+          <form method="post" action="/disputes/{{ dispute.id }}/approve" class="slide-form" data-slide-form>
+            <label class="slide">
+              <span class="slide-text">Slide to approve {{ 'acceptance' if report.action == 'ACCEPT_CLAIM' else 'evidence' }}</span>
+              <input type="range" min="0" max="100" value="0" class="slide-input" data-slide aria-label="Slide to approve">
+            </label>
+            <noscript><button class="btn btn-accept btn-block" type="submit">Approve</button></noscript>
           </form>
-          {% if report.blocked %}<p class="muted small">Approval unlocks when every check passes.</p>{% endif %}
         {% endif %}
       </div>
     </aside>
   </div>
 {% else %}
-  <section class="empty card reveal">
-    <img class="float empty-mark" src="/static/img/logo-mark.png" alt="">
+  <section class="empty reveal">
+    <img class="empty-mark float" src="/static/img/logo-mark.png" alt="">
     <h2>No draft yet</h2>
-    <p class="muted">Generate a draft to see the response, every claim's source check, and the gate result.</p>
+    <p class="muted">Generate a draft to see the response, each claim's source, and the gate verdict.</p>
+    <form method="post" action="/disputes/{{ dispute.id }}/draft" data-loading="Drafting…">
+      <button class="btn btn-primary btn-lg" type="submit">Generate draft</button>
+    </form>
   </section>
 {% endif %}
 {% endblock %}

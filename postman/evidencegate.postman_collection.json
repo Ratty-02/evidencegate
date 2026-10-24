@@ -1,0 +1,37 @@
+{
+  "info": {
+    "name": "EvidenceGate PayPal sandbox",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base", "value": "https://api-m.sandbox.paypal.com"},
+    {"key": "client_id", "value": ""},
+    {"key": "client_secret", "value": ""},
+    {"key": "token", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "Get access token",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/x-www-form-urlencoded"}],
+        "auth": {"type": "basic", "basic": [
+          {"key": "username", "value": "{{client_id}}"},
+          {"key": "password", "value": "{{client_secret}}"}
+        ]},
+        "body": {"mode": "urlencoded", "urlencoded": [
+          {"key": "grant_type", "value": "client_credentials"}
+        ]},
+        "url": "{{base}}/v1/oauth2/token"
+      }
+    },
+    {
+      "name": "List disputes",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+        "url": "{{base}}/v1/customer/disputes?page_size=10"
+      }
+    }
+  ]
+}

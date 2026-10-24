@@ -1,15 +1,19 @@
-"""Draft pipeline: ask the model for a draft, then run deterministic checks
-before anything can be approved.
+"""Draft pipeline: ask the model for a draft, then run deterministic checks.
 
 Recommendation -> action:
-  FIGHT    -> SUBMIT_EVIDENCE  (rules, claim grounding, and sentence coverage)
+  FIGHT    -> SUBMIT_EVIDENCE  (rules, claim grounding, sentence coverage)
   ACCEPT   -> ACCEPT_CLAIM     (status check only; no evidence is sent)
   ESCALATE -> HUMAN_REVIEW     (nothing is sent; a person decides)
+
+Records come from PayPal (when available) plus merchant-supplied records.
+Merit warnings do not block; they tell the merchant when cited records
+suggest the fight may be weak.
 """
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from app import db
 from app.ai.schemas import Draft
 from app.paypal.mock_client import MockPayPalClient
 from app.rules.grounding import (
@@ -32,6 +36,7 @@ SUBMIT_EVIDENCE = "SUBMIT_EVIDENCE"
 ACCEPT_CLAIM = "ACCEPT_CLAIM"
 HUMAN_REVIEW = "HUMAN_REVIEW"
 ACTION_FOR = {"FIGHT": SUBMIT_EVIDENCE, "ACCEPT": ACCEPT_CLAIM, "ESCALATE": HUMAN_REVIEW}
+WARN_STATUSES = {"IN_TRANSIT", "PENDING", "LOST", "RETURNED"}
 
 
 @dataclass
@@ -44,17 +49,43 @@ class Report:
     claims: list[ClaimResult]
     uncovered: list[str]
     blocked: bool
+    warnings: list[str] = field(default_factory=list)
 
 
 def build_user_message(dispute: dict, records: dict[str, dict]) -> str:
     return json.dumps({"dispute": dispute, "records": records}, indent=2)
 
 
-def check_draft(dispute_id: str, draft: Draft, paypal=None) -> Report:
+def load_records(dispute_id: str, paypal, merchant_records: dict | None = None):
+    """Return (dispute, records) where records merges PayPal and merchant data."""
+    dispute = paypal.get_dispute(dispute_id)
+    base = paypal.get_records(dispute)
+    extra = db.get_records(dispute_id) if merchant_records is None else merchant_records
+    merged = {rid: dict(fields) for rid, fields in base.items()}
+    for rid, fields in extra.items():
+        merged.setdefault(rid, {}).update(fields)
+    return dispute, merged
+
+
+def merit_warnings(action: str, claims: list[Claim], records: dict[str, dict]) -> list[str]:
+    if action != SUBMIT_EVIDENCE:
+        return []
+    warnings = []
+    for claim in claims:
+        if claim.record_id and claim.record_id in records:
+            status = str(records[claim.record_id].get("status", "")).upper()
+            if status in WARN_STATUSES:
+                warnings.append(
+                    f"{claim.record_id} shows status {status}. "
+                    "Check whether fighting is still the right call."
+                )
+    return sorted(set(warnings))
+
+
+def check_draft(dispute_id: str, draft: Draft, paypal=None, merchant_records: dict | None = None) -> Report:
     """Run every deterministic check on a draft. No model call."""
     paypal = paypal or MockPayPalClient()
-    dispute = paypal.get_dispute(dispute_id)
-    records = paypal.get_records(dispute)
+    dispute, records = load_records(dispute_id, paypal, merchant_records)
 
     action = ACTION_FOR[draft.recommendation]
     evidence_types = [normalize_evidence_type(t) for t in draft.evidence_types]
@@ -74,17 +105,19 @@ def check_draft(dispute_id: str, draft: Draft, paypal=None) -> Report:
         rules = check_status(dispute)
         blocked = False
 
-    return Report(dispute_id, draft, action, evidence_types, rules,
-                  claim_results, uncovered, blocked)
+    return Report(
+        dispute_id, draft, action, evidence_types, rules,
+        claim_results, uncovered, blocked,
+        merit_warnings(action, claims, records),
+    )
 
 
-def run_draft(dispute_id: str, llm, paypal=None) -> Report:
+def run_draft(dispute_id: str, llm, paypal=None, merchant_records: dict | None = None) -> Report:
     """Ask the model for a draft, then check it."""
     paypal = paypal or MockPayPalClient()
-    dispute = paypal.get_dispute(dispute_id)
-    records = paypal.get_records(dispute)
+    dispute, records = load_records(dispute_id, paypal, merchant_records)
     draft = llm.draft(PROMPT, build_user_message(dispute, records))
-    return check_draft(dispute_id, draft, paypal)
+    return check_draft(dispute_id, draft, paypal, merchant_records)
 
 
 def status_line(report: Report) -> str:
@@ -118,6 +151,8 @@ def format_report(report: Report) -> str:
     if report.uncovered:
         lines += ["", "Sentences with no source claim:"]
         lines += [f"  {s}" for s in report.uncovered]
+    if report.warnings:
+        lines += ["", "Warnings:"] + [f"  {w}" for w in report.warnings]
     lines += ["", "Rules:"]
     if report.rules.ok:
         lines.append("  all checks passed")

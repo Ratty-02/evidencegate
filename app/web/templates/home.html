@@ -1,62 +1,109 @@
 {% extends "base.html" %}
 {% block title %}Gate the Guesswork{% endblock %}
 {% block content %}
+
 <section class="hero">
-  <div class="hero-copy">
-    <span class="eyebrow hero-anim">Payment dispute defense</span>
-    <h1 class="hero-anim delay-1">Gate the <span class="grad">Guesswork</span>.</h1>
-    <p class="lede hero-anim delay-2">EvidenceGate checks every claim in a dispute response against the records you actually have. Nothing reaches PayPal unless it passes the gate, and you approve every submission.</p>
-    <div class="cta-row hero-anim delay-3">
-      <a class="btn btn-primary btn-lg" href="/disputes">Review open disputes</a>
-      <a class="btn btn-ghost btn-lg" href="#how">How it works</a>
+  <div class="hero-text">
+    <span class="kicker hero-in">Payment dispute defense</span>
+    <h1 class="split" aria-label="Gate the Guesswork.">
+      <span style="--i:0">Gate</span>
+      <span style="--i:1">the</span>
+      <span class="grad" style="--i:2">Guesswork</span><span class="dot" style="--i:3">.</span>
+    </h1>
+    <p class="lede hero-in d2">EvidenceGate checks every claim in a dispute response against the records you actually hold. Nothing reaches PayPal unless it passes the gate, and you approve every submission.</p>
+    <div class="cta-row hero-in d3">
+      <a class="btn btn-primary btn-lg" href="/disputes">Open the case board</a>
+      <a class="btn btn-ghost btn-lg" href="#pipeline">See the five gates</a>
     </div>
   </div>
-  <div class="hero-art hero-anim delay-2">
-    <div class="halo"></div>
-    <img class="float" src="/static/img/logo-hero.png" alt="EvidenceGate mark">
+
+  <div class="sim hero-in d2" aria-hidden="true">
+    <div class="sim-head"><span>Gate check</span><span class="chip-live"><i></i>live</span></div>
+    <div class="sim-doc">
+      <div class="scanbeam"></div>
+      <p class="sim-line l1"><b class="ok">✓</b> The item was delivered on 2026-10-06.</p>
+      <p class="sim-line l2"><b class="ok">✓</b> Shipped via FEDEX.</p>
+      <p class="sim-line l3"><b class="bad">!</b> Buyer confirmed receipt in writing.</p>
+    </div>
+    <div class="sim-foot">
+      <span class="tag tag-ok">TRK-1001 · delivered_on</span>
+      <span class="tag tag-bad">no source record</span>
+    </div>
+    <p class="sim-caption">Illustrative example</p>
+    <img class="sim-mark float" src="/static/img/logo-mark.png" alt="">
   </div>
 </section>
 
-<section class="stats reveal">
+<section class="gauges reveal">
   {% if summary %}
-    <div class="stat"><span class="num" data-count="{{ summary.injected_caught }}">{{ summary.injected_caught }}</span><span class="stat-label">of {{ summary.injected_total }} injected errors caught</span></div>
-    <div class="stat"><span class="num">{{ summary.clean_passed }}/{{ summary.clean_total }}</span><span class="stat-label">clean drafts passed</span></div>
-    <div class="stat"><span class="num">{{ summary.routing_correct }}/{{ summary.routing_total }}</span><span class="stat-label">routing decisions correct</span></div>
+    {% set p1 = (summary.injected_caught * 100 // summary.injected_total) if summary.injected_total else 0 %}
+    {% set p2 = (summary.clean_passed * 100 // summary.clean_total) if summary.clean_total else 0 %}
+    {% set p3 = (summary.routing_correct * 100 // summary.routing_total) if summary.routing_total else 0 %}
+    <div class="gauge-card">
+      <div class="gauge" data-value="{{ p1 }}"><span class="gauge-num">{{ summary.injected_caught }}<small>/{{ summary.injected_total }}</small></span></div>
+      <h3>Errors caught</h3><p>Injected errors the gate blocked</p>
+    </div>
+    <div class="gauge-card">
+      <div class="gauge" data-value="{{ p2 }}"><span class="gauge-num">{{ summary.clean_passed }}<small>/{{ summary.clean_total }}</small></span></div>
+      <h3>Clean drafts passed</h3><p>Good drafts that were not over-blocked</p>
+    </div>
+    <div class="gauge-card">
+      <div class="gauge" data-value="{{ p3 }}"><span class="gauge-num">{{ summary.routing_correct }}<small>/{{ summary.routing_total }}</small></span></div>
+      <h3>Routing correct</h3><p>Cases sent to the right action</p>
+    </div>
   {% else %}
-    <div class="stat stat-empty">Run <code>python -m evals.run_eval</code> to show gate results here.</div>
+    <div class="empty-card">Run <code>python -m evals.run_eval</code> to show gate results here.</div>
   {% endif %}
 </section>
 
-<section class="section" id="how">
+<section class="section" id="pipeline">
   <div class="section-head reveal">
-    <span class="eyebrow">How it works</span>
-    <h2>Three steps. Nothing skips the gate.</h2>
+    <span class="kicker">The gate</span>
+    <h2>Five checks. Nothing skips them.</h2>
   </div>
-  <div class="steps">
-    <div class="step reveal"><div class="step-num">1</div><h3>Read the dispute</h3><p>Pull the dispute, transaction, and tracking records. Every fact the response can use comes from these.</p></div>
-    <div class="step reveal delay-1"><div class="step-num">2</div><h3>Draft with AI</h3><p>The model drafts a response where each sentence is tied to a source record. Malformed output is rejected.</p></div>
-    <div class="step reveal delay-2"><div class="step-num">3</div><h3>Gate, then approve</h3><p>Rules and grounding checks run first. Blocked drafts cannot be approved. You make the final call.</p></div>
-  </div>
+  <ol class="rail">
+    <li class="node reveal"><span class="n">1</span><h3>Dispute open</h3><p>Evidence is only sent while PayPal still accepts it.</p></li>
+    <li class="node reveal delay-1"><span class="n">2</span><h3>File rules</h3><p>Accepted types and size limits, checked before upload.</p></li>
+    <li class="node reveal delay-2"><span class="n">3</span><h3>Claims grounded</h3><p>Every claim cites a real record, with the value matching exactly.</p></li>
+    <li class="node reveal delay-3"><span class="n">4</span><h3>Sentences covered</h3><p>Any sentence no claim supports blocks submission.</p></li>
+    <li class="node reveal delay-4"><span class="n">5</span><h3>You approve</h3><p>Nothing is sent until a person slides to approve.</p></li>
+  </ol>
 </section>
 
 <section class="section">
   <div class="section-head reveal">
-    <span class="eyebrow">What the gate checks</span>
-    <h2>Four checks before anything is sent.</h2>
+    <span class="kicker">Why it matters</span>
+    <h2>Trust is the product.</h2>
   </div>
-  <div class="features">
-    <div class="feature reveal"><span class="feature-icon">01</span><h3>Dispute status</h3><p>Evidence is only sent while the dispute is still open and PayPal's evidence link is present.</p></div>
-    <div class="feature reveal delay-1"><span class="feature-icon">02</span><h3>File rules</h3><p>Accepted types and size limits, checked before upload, so submissions don't fail late.</p></div>
-    <div class="feature reveal delay-2"><span class="feature-icon">03</span><h3>Claim grounding</h3><p>Every claim must cite a real record, with the field and value matching exactly.</p></div>
-    <div class="feature reveal delay-3"><span class="feature-icon">04</span><h3>Sentence coverage</h3><p>Any sentence in the response that no claim supports is flagged and blocks submission.</p></div>
+  <div class="bento">
+    <div class="tile tile-big reveal">
+      <span class="tile-no">01</span>
+      <h3>The model drafts. The gate decides.</h3>
+      <p>Language models are fluent, not reliable. EvidenceGate treats every sentence as a claim to verify, and blocks anything it cannot trace to a record.</p>
+    </div>
+    <div class="tile reveal delay-1">
+      <span class="tile-no">02</span>
+      <h3>Honest by design</h3>
+      <p>Blocked drafts can't be approved, even by a click. Every approval stores a request ID for audit.</p>
+    </div>
+    <div class="tile reveal delay-2">
+      <span class="tile-no">03</span>
+      <h3>Measured, not claimed</h3>
+      <p>Labeled cases with injected errors show how often the gate catches them.</p>
+    </div>
+    <div class="tile tile-wide reveal">
+      <span class="tile-no">04</span>
+      <h3>Built on PayPal's own rules</h3>
+      <p>Dispute status, the provide-evidence link, file types, and size limits all come from PayPal's Disputes API.</p>
+    </div>
   </div>
 </section>
 
 <section class="cta-band reveal">
   <div>
     <h2>Gate the guesswork out of every dispute.</h2>
-    <p>Review the drafts, see exactly which claims passed, and approve with confidence.</p>
+    <p>See each claim's source, check the gate, then approve with confidence.</p>
   </div>
-  <a class="btn btn-accept btn-lg" href="/disputes">Open the inbox</a>
+  <a class="btn btn-accept btn-lg" href="/disputes">Open the case board</a>
 </section>
 {% endblock %}

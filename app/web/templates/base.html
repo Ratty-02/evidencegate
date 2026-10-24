@@ -8,25 +8,29 @@
   <link rel="icon" href="/static/img/logo-mark.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
   <div class="progress" id="scroll-progress"></div>
-  <header class="nav">
-    <div class="nav-inner">
+
+  <header class="topbar">
+    <nav class="dock">
       <a class="brand" href="/"><img src="/static/img/logo-lockup.png" alt="EvidenceGate"></a>
-      <nav class="nav-links">
-        <a href="/" class="{{ 'active' if request.url.path == '/' }}">Home</a>
-        <a href="/disputes" class="{{ 'active' if request.url.path.startswith('/disputes') }}">Disputes</a>
-      </nav>
-      <a class="btn btn-primary btn-sm" href="/disputes">Open inbox</a>
-    </div>
+      <div class="dock-links">
+        <a href="/" class="{{ 'on' if request.url.path == '/' }}">Home</a>
+        <a href="/disputes" class="{{ 'on' if request.url.path.startswith('/disputes') }}">Case board</a>
+      </div>
+      <span class="live"><i></i>{{ 'Mock PayPal data' if is_mock() else 'PayPal sandbox' }}</span>
+    </nav>
   </header>
-  <main class="page">{% block content %}{% endblock %}</main>
-  <footer class="footer">
-    <span><strong>EvidenceGate</strong> · Prototype using mock PayPal data</span>
-    <span class="tagline-foot">Gate the Guesswork</span>
+
+  <main class="stage">{% block content %}{% endblock %}</main>
+
+  <footer class="foot">
+    <span><strong>EvidenceGate</strong> · prototype</span>
+    <span class="foot-tag">Gate the Guesswork</span>
   </footer>
   <script src="/static/app.js"></script>
 </body>
