@@ -38,6 +38,12 @@ ROWS_0002_AMOUNT = [
     ("The transaction amount was $120.00 USD.", "TXN-1002", "amount", "120.00"),
     ("The shipment is with UPS under tracking number 1Z999AA10123456784.", "TRK-1002", "carrier", "UPS"),
 ]
+ROWS_0002 = [
+    ("The transaction amount was $120.00 USD.", "TXN-1002", "amount", "120.00"),
+    ("The order was placed on 2026-10-03.", "TXN-1002", "order_date", "2026-10-03"),
+    ("The shipment is with UPS under tracking number 1Z999AA10123456784.", "TRK-1002", "carrier", "UPS"),
+    ("The last scan was on 2026-10-10.", "TRK-1002", "last_scan", "2026-10-10"),
+]
 ROWS_0003 = [
     ("The transaction amount was $35.00 USD.", "TXN-1003", "amount", "35.00"),
 ]
@@ -92,29 +98,57 @@ def build_cases() -> list[Case]:
     def add(case_id, dispute_id, kind, draft, expect_blocked, expect_action=None, error=None):
         cases.append(Case(case_id, dispute_id, kind, error, draft, expect_blocked, expect_action))
 
-    # PP-R-0001: open, delivered. Clean FIGHT plus six injected errors.
-    evid = ["PROOF_OF_DELIVERY"]
-    add("0001-clean", "PP-R-0001", "clean", build(ROWS_0001, "FIGHT", evid),
+    fight = ["PROOF_OF_DELIVERY"]
+
+    # PP-R-0001: open, delivered. 3 clean, 12 injected, 1 routing.
+    add("0001-clean", "PP-R-0001", "clean", build(ROWS_0001, "FIGHT", fight),
         False, SUBMIT_EVIDENCE)
+    add("0001-clean-whitespace-value", "PP-R-0001", "clean",
+        build(with_value(ROWS_0001, 0, "  49.00 "), "FIGHT", fight), False, SUBMIT_EVIDENCE)
+    add("0001-clean-lowercase-evidence", "PP-R-0001", "clean",
+        build(ROWS_0001, "FIGHT", ["proof_of_delivery"]), False, SUBMIT_EVIDENCE)
+
     add("0001-wrong-amount", "PP-R-0001", "injected",
-        build(with_value(ROWS_0001, 0, "45.00"), "FIGHT", evid), True, error="wrong_value")
+        build(with_value(ROWS_0001, 0, "45.00"), "FIGHT", fight), True, error="wrong_value")
     add("0001-wrong-delivery-date", "PP-R-0001", "injected",
-        build(with_value(ROWS_0001, 3, "2026-10-03"), "FIGHT", evid), True, error="wrong_value")
+        build(with_value(ROWS_0001, 3, "2026-10-03"), "FIGHT", fight), True, error="wrong_value")
+    add("0001-wrong-order-date", "PP-R-0001", "injected",
+        build(with_value(ROWS_0001, 1, "2026-09-30"), "FIGHT", fight), True, error="wrong_value")
+    add("0001-wrong-carrier", "PP-R-0001", "injected",
+        build(with_value(ROWS_0001, 2, "UPS"), "FIGHT", fight), True, error="wrong_value")
     add("0001-fabricated-record", "PP-R-0001", "injected",
-        build(with_record(ROWS_0001, 3, "TRK-9999"), "FIGHT", evid), True, error="fabricated_record")
+        build(with_record(ROWS_0001, 3, "TRK-9999"), "FIGHT", fight), True, error="fabricated_record")
+    add("0001-null-record", "PP-R-0001", "injected",
+        build(with_record(ROWS_0001, 2, None), "FIGHT", fight), True, error="fabricated_record")
     add("0001-unknown-field", "PP-R-0001", "injected",
-        build(with_field(ROWS_0001, 1, "signed_at"), "FIGHT", evid), True, error="unknown_field")
+        build(with_field(ROWS_0001, 1, "signed_at"), "FIGHT", fight), True, error="unknown_field")
+    add("0001-field-from-wrong-record", "PP-R-0001", "injected",
+        build(with_record(ROWS_0001, 0, "TRK-1001"), "FIGHT", fight), True, error="unknown_field")
     add("0001-uncovered-sentence", "PP-R-0001", "injected",
-        build(ROWS_0001, "FIGHT", evid, extra_sentences=["The buyer confirmed receipt in writing."]),
+        build(ROWS_0001, "FIGHT", fight,
+              extra_sentences=["The package was signed for by the recipient."]),
         True, error="uncovered_sentence")
     add("0001-dropped-claim", "PP-R-0001", "injected",
-        drop_claim(build(ROWS_0001, "FIGHT", evid), 1), True, error="uncovered_sentence")
+        drop_claim(build(ROWS_0001, "FIGHT", fight), 1), True, error="uncovered_sentence")
+    add("0001-uncovered-delivery", "PP-R-0001", "injected",
+        drop_claim(build(ROWS_0001, "FIGHT", fight), 3), True, error="uncovered_sentence")
+    add("0001-empty-evidence", "PP-R-0001", "injected",
+        build(ROWS_0001, "FIGHT", []), True, error="empty_evidence")
 
-    # PP-R-0002: open, in transit. Clean ACCEPT, overstated FIGHT, wrong amount, escalate.
+    add("0001-escalate-with-uncovered", "PP-R-0001", "routing",
+        build(ROWS_0001, "ESCALATE", extra_sentences=["The buyer disputes the amount."]),
+        False, HUMAN_REVIEW)
+
+    # PP-R-0002: open, in transit. 2 clean ACCEPT, 7 injected, 1 routing.
     add("0002-clean-accept", "PP-R-0002", "clean",
         Draft(evidence_types=[], response_text="We accept this claim.", claims=[],
               recommendation="ACCEPT", reason="Parcel is still in transit."),
         False, ACCEPT_CLAIM)
+    add("0002-clean-accept-with-evidence-list", "PP-R-0002", "clean",
+        Draft(evidence_types=["PROOF_OF_DELIVERY"], response_text="We accept this claim.",
+              claims=[], recommendation="ACCEPT", reason="No proof of delivery."),
+        False, ACCEPT_CLAIM)
+
     add("0002-overstated-delivery", "PP-R-0002", "injected",
         Draft(evidence_types=["PROOF_OF_DELIVERY"],
               response_text="The shipment was delivered.",
@@ -123,19 +157,35 @@ def build_cases() -> list[Case]:
               recommendation="FIGHT", reason="Claims delivery."),
         True, error="overstated_status")
     add("0002-wrong-amount", "PP-R-0002", "injected",
-        build(with_value(ROWS_0002_AMOUNT, 0, "210.00"), "FIGHT", evid), True, error="wrong_value")
+        build(with_value(ROWS_0002, 0, "210.00"), "FIGHT", fight), True, error="wrong_value")
+    add("0002-wrong-last-scan", "PP-R-0002", "injected",
+        build(with_value(ROWS_0002, 3, "2026-10-12"), "FIGHT", fight), True, error="wrong_value")
+    add("0002-wrong-order-date", "PP-R-0002", "injected",
+        build(with_value(ROWS_0002, 1, "2026-10-05"), "FIGHT", fight), True, error="wrong_value")
+    add("0002-fabricated-record", "PP-R-0002", "injected",
+        build(with_record(ROWS_0002, 2, "TRK-9999"), "FIGHT", fight), True, error="fabricated_record")
+    add("0002-dropped-claim", "PP-R-0002", "injected",
+        drop_claim(build(ROWS_0002, "FIGHT", fight), 1), True, error="uncovered_sentence")
+    add("0002-uncovered-sentence", "PP-R-0002", "injected",
+        build(ROWS_0002, "FIGHT", fight, extra_sentences=["The buyer asked for a refund."]),
+        True, error="uncovered_sentence")
+
     add("0002-escalate", "PP-R-0002", "routing",
         Draft(evidence_types=[], response_text="The evidence is mixed.", claims=[],
               recommendation="ESCALATE", reason="Unclear."),
         False, HUMAN_REVIEW)
 
-    # PP-R-0003: resolved. Any submission must be blocked.
-    add("0003-closed-fight", "PP-R-0003", "injected", build(ROWS_0003, "FIGHT", evid),
+    # PP-R-0003: resolved. 2 injected, 1 routing.
+    add("0003-closed-fight", "PP-R-0003", "injected", build(ROWS_0003, "FIGHT", fight),
         True, error="closed_dispute")
     add("0003-closed-accept", "PP-R-0003", "injected",
         Draft(evidence_types=[], response_text="We accept this claim.", claims=[],
               recommendation="ACCEPT", reason="Closed."),
         True, error="closed_dispute")
+    add("0003-closed-escalate", "PP-R-0003", "routing",
+        Draft(evidence_types=[], response_text="Needs a look.", claims=[],
+              recommendation="ESCALATE", reason="Closed; check history."),
+        False, HUMAN_REVIEW)
 
     return cases
 

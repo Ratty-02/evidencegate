@@ -1,27 +1,31 @@
 {
   "summary": {
-    "injected_total": 10,
-    "injected_caught": 10,
-    "clean_total": 2,
-    "clean_passed": 2,
-    "routing_total": 1,
-    "routing_correct": 1,
+    "injected_total": 21,
+    "injected_caught": 21,
+    "clean_total": 5,
+    "clean_passed": 5,
+    "routing_total": 3,
+    "routing_correct": 3,
     "by_error": {
       "wrong_value": {
+        "total": 7,
+        "caught": 7
+      },
+      "fabricated_record": {
         "total": 3,
         "caught": 3
       },
-      "fabricated_record": {
-        "total": 1,
-        "caught": 1
-      },
       "unknown_field": {
-        "total": 1,
-        "caught": 1
-      },
-      "uncovered_sentence": {
         "total": 2,
         "caught": 2
+      },
+      "uncovered_sentence": {
+        "total": 5,
+        "caught": 5
+      },
+      "empty_evidence": {
+        "total": 1,
+        "caught": 1
       },
       "overstated_status": {
         "total": 1,
@@ -37,6 +41,26 @@
   "cases": [
     {
       "id": "0001-clean",
+      "kind": "clean",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": []
+    },
+    {
+      "id": "0001-clean-whitespace-value",
+      "kind": "clean",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": []
+    },
+    {
+      "id": "0001-clean-lowercase-evidence",
       "kind": "clean",
       "error": null,
       "expected_blocked": false,
@@ -70,6 +94,30 @@
       ]
     },
     {
+      "id": "0001-wrong-order-date",
+      "kind": "injected",
+      "error": "wrong_value",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
+      "id": "0001-wrong-carrier",
+      "kind": "injected",
+      "error": "wrong_value",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
       "id": "0001-fabricated-record",
       "kind": "injected",
       "error": "fabricated_record",
@@ -82,7 +130,31 @@
       ]
     },
     {
+      "id": "0001-null-record",
+      "kind": "injected",
+      "error": "fabricated_record",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNSUPPORTED"
+      ]
+    },
+    {
       "id": "0001-unknown-field",
+      "kind": "injected",
+      "error": "unknown_field",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNSUPPORTED"
+      ]
+    },
+    {
+      "id": "0001-field-from-wrong-record",
       "kind": "injected",
       "error": "unknown_field",
       "expected_blocked": true,
@@ -118,7 +190,51 @@
       ]
     },
     {
+      "id": "0001-uncovered-delivery",
+      "kind": "injected",
+      "error": "uncovered_sentence",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNCOVERED_SENTENCE"
+      ]
+    },
+    {
+      "id": "0001-empty-evidence",
+      "kind": "injected",
+      "error": "empty_evidence",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "EMPTY_SUBMISSION"
+      ]
+    },
+    {
+      "id": "0001-escalate-with-uncovered",
+      "kind": "routing",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "HUMAN_REVIEW",
+      "passed": true,
+      "issues": []
+    },
+    {
       "id": "0002-clean-accept",
+      "kind": "clean",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "ACCEPT_CLAIM",
+      "passed": true,
+      "issues": []
+    },
+    {
+      "id": "0002-clean-accept-with-evidence-list",
       "kind": "clean",
       "error": null,
       "expected_blocked": false,
@@ -152,6 +268,66 @@
       ]
     },
     {
+      "id": "0002-wrong-last-scan",
+      "kind": "injected",
+      "error": "wrong_value",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
+      "id": "0002-wrong-order-date",
+      "kind": "injected",
+      "error": "wrong_value",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "CONTRADICTED"
+      ]
+    },
+    {
+      "id": "0002-fabricated-record",
+      "kind": "injected",
+      "error": "fabricated_record",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNSUPPORTED"
+      ]
+    },
+    {
+      "id": "0002-dropped-claim",
+      "kind": "injected",
+      "error": "uncovered_sentence",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNCOVERED_SENTENCE"
+      ]
+    },
+    {
+      "id": "0002-uncovered-sentence",
+      "kind": "injected",
+      "error": "uncovered_sentence",
+      "expected_blocked": true,
+      "blocked": true,
+      "action": "SUBMIT_EVIDENCE",
+      "passed": true,
+      "issues": [
+        "UNCOVERED_SENTENCE"
+      ]
+    },
+    {
       "id": "0002-escalate",
       "kind": "routing",
       "error": null,
@@ -181,6 +357,18 @@
       "expected_blocked": true,
       "blocked": true,
       "action": "ACCEPT_CLAIM",
+      "passed": true,
+      "issues": [
+        "STATUS_NOT_ACTIONABLE"
+      ]
+    },
+    {
+      "id": "0003-closed-escalate",
+      "kind": "routing",
+      "error": null,
+      "expected_blocked": false,
+      "blocked": false,
+      "action": "HUMAN_REVIEW",
       "passed": true,
       "issues": [
         "STATUS_NOT_ACTIONABLE"
