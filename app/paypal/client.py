@@ -2,10 +2,11 @@
 
 Authentication: OAuth2 client credentials. Tokens are cached until shortly
 before they expire. Transient errors (429 and 5xx) are retried with backoff.
-Error messages never include the client secret.
+Write calls send a PayPal-Request-Id header; retries reuse the same ID so
+PayPal can treat them as one request. Error messages never include the secret.
 
-Only read endpoints are used so far. Evidence submission is added after the
-response shapes are confirmed against a real sandbox dispute.
+Write endpoint body shapes follow PayPal's Disputes API reference. Confirm
+them against a real sandbox dispute before going live (see docs/sandbox_limits.md).
 """
 import time
 
@@ -62,9 +63,11 @@ class RealPayPalClient:
         self._expires_at = time.time() + int(body.get("expires_in", 3000))
         return self._token
 
-    def _request(self, method: str, path: str, **kwargs) -> dict:
+    def _request(self, method: str, path: str, request_id: str | None = None, **kwargs) -> dict:
         for attempt in range(self.max_retries + 1):
             headers = {"Authorization": f"Bearer {self.access_token()}", "Accept": "application/json"}
+            if request_id:
+                headers["PayPal-Request-Id"] = request_id
             response = self._http.request(method, path, headers=headers, **kwargs)
             if response.status_code in RETRY_STATUSES and attempt < self.max_retries:
                 time.sleep(2 ** attempt)
@@ -74,8 +77,26 @@ class RealPayPalClient:
             return response.json() if response.content else {}
         raise PayPalError(f"{method} {path} failed after retries")
 
+    # Read endpoints
     def list_disputes(self, page_size: int = 10) -> dict:
         return self._request("GET", "/v1/customer/disputes", params={"page_size": page_size})
 
     def get_dispute(self, dispute_id: str) -> dict:
         return self._request("GET", f"/v1/customer/disputes/{dispute_id}")
+
+    # Write endpoints
+    def provide_evidence(self, dispute_id: str, evidences: list[dict], request_id: str) -> dict:
+        return self._request(
+            "POST",
+            f"/v1/customer/disputes/{dispute_id}/provide-evidence",
+            request_id=request_id,
+            json={"evidences": evidences},
+        )
+
+    def accept_claim(self, dispute_id: str, reason: str, note: str, request_id: str) -> dict:
+        return self._request(
+            "POST",
+            f"/v1/customer/disputes/{dispute_id}/accept-claim",
+            request_id=request_id,
+            json={"reason": reason, "note": note},
+        )

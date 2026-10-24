@@ -3,6 +3,7 @@
 Approval records the decision only. Nothing is sent to PayPal yet.
 """
 import json
+import uuid
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -14,7 +15,10 @@ from fastapi.templating import Jinja2Templates
 
 from app.ai.llm import GroqClient, LLMOutputError
 from app.ai.pipeline import HUMAN_REVIEW, Report, run_draft
+from app import config
+from app.paypal.client import PayPalError, RealPayPalClient
 from app.paypal.mock_client import DisputeNotFound, MockPayPalClient
+from app.services.submission import SubmissionRefused, submit_report
 from app.rules.paypal_evidence import ACTIONABLE_STATUS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -123,8 +127,13 @@ def draft(dispute_id: str, paypal=Depends(get_paypal), llm=Depends(get_llm)):
     return RedirectResponse(f"/disputes/{dispute_id}", status_code=303)
 
 
+def get_submitter():
+    """None in mock mode (decision recorded only). A real client otherwise."""
+    return None if config.PAYPAL_MOCK else RealPayPalClient()
+
+
 @router.post("/disputes/{dispute_id}/approve")
-def approve(dispute_id: str):
+def approve(dispute_id: str, submitter=Depends(get_submitter)):
     report = REPORTS.get(dispute_id)
     if report is None:
         raise HTTPException(400, "generate a draft first")
@@ -132,5 +141,13 @@ def approve(dispute_id: str):
         raise HTTPException(400, "this case needs a human decision; nothing to approve")
     if report.blocked:
         raise HTTPException(409, "blocked by checks; fix the draft before approving")
+    if submitter is not None:
+        try:
+            dispute = submitter.get_dispute(dispute_id)
+            submit_report(report, dispute, submitter, request_id=str(uuid.uuid4()))
+        except SubmissionRefused as exc:
+            raise HTTPException(409, str(exc))
+        except PayPalError as exc:
+            raise HTTPException(502, f"PayPal rejected the submission: {exc}")
     APPROVED[dispute_id] = report.action
     return RedirectResponse(f"/disputes/{dispute_id}", status_code=303)
