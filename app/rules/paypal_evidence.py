@@ -109,3 +109,20 @@ def check_submission(
         ))
 
     return result
+
+
+def normalize_evidence_type(value: str) -> str:
+    """Model output varies in casing and separators; PayPal names are upper snake case."""
+    return value.strip().upper().replace(" ", "_").replace("-", "_")
+
+
+def check_status(dispute: dict) -> RulesResult:
+    """Status-only check, used for actions that do not send evidence (accept, escalate)."""
+    result = RulesResult()
+    if dispute.get("status") != ACTIONABLE_STATUS:
+        result.issues.append(Issue(
+            "STATUS_NOT_ACTIONABLE",
+            f"dispute status is {dispute.get('status')!r}; "
+            f"actions require {ACTIONABLE_STATUS!r}",
+        ))
+    return result

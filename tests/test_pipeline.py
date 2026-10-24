@@ -1,4 +1,4 @@
-from app.ai.pipeline import build_user_message, format_report, run_draft
+﻿from app.ai.pipeline import build_user_message, format_report, run_draft
 from app.ai.schemas import Draft, DraftClaim
 from app.paypal.mock_client import MockPayPalClient
 
@@ -17,7 +17,7 @@ class FakeLLM:
 
 GOOD_DRAFT = Draft(
     evidence_types=["RECEIPT_OF_MERCHANDISE"],
-    response_text="Tracking shows delivery on 2026-10-06.",
+    response_text="Delivered on 2026-10-06.",
     claims=[DraftClaim(statement="Delivered on 2026-10-06", record_id="TRK-1001",
                        field="delivered_on", value="2026-10-06")],
     recommendation="FIGHT",
@@ -72,3 +72,4 @@ def test_user_message_is_valid_json_with_both_sections():
     payload = json.loads(build_user_message(dispute, client.get_records(dispute)))
     assert set(payload) == {"dispute", "records"}
     assert "TRK-1002" in payload["records"]
+

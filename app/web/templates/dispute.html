@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ dispute.id }}</h1>
+<p>Status: {{ dispute.status }} · Reason: {{ dispute.reason }} ·
+   Amount: {{ dispute.amount }} {{ dispute.currency }} · Deadline: {{ dispute.deadline }}</p>
+
+<form method="post" action="/disputes/{{ dispute.id }}/draft">
+  <button type="submit">{{ 'Regenerate draft' if report else 'Generate draft' }}</button>
+</form>
+
+{% if report %}
+  <h2>Recommendation: {{ report.draft.recommendation }}</h2>
+  <p>{{ report.draft.reason }}</p>
+  <p>Action: <strong>{{ report.action }}</strong></p>
+
+  {% if report.blocked %}<div class="banner blocked">Submission blocked. Fix the issues below before approving.</div>{% endif %}
+  {% if approved %}<div class="banner ok">Approved ({{ approved }}). Recorded only; not yet sent to PayPal.</div>{% endif %}
+
+  <h3>Response</h3>
+  <p>{{ report.draft.response_text }}</p>
+
+  {% if report.uncovered %}
+  <h3>Sentences with no source claim</h3>
+  <ul>{% for s in report.uncovered %}<li>{{ s }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <h3>Claims</h3>
+  {% if report.claims %}
+  <table>
+    <thead><tr><th>Status</th><th>Statement</th><th>Check</th></tr></thead>
+    <tbody>
+    {% for r in report.claims %}
+      <tr class="claim-{{ r.status|lower }}"><td>{{ r.status }}</td><td>{{ r.claim.statement }}</td><td>{{ r.reason }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No claims.</p>{% endif %}
+
+  <h3>Rules</h3>
+  {% if report.rules.ok %}<p>All checks passed.</p>{% else %}
+  <ul>{% for i in report.rules.issues %}<li><strong>{{ i.code }}</strong>: {{ i.message }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if report.action != 'HUMAN_REVIEW' and not approved %}
+  <form method="post" action="/disputes/{{ dispute.id }}/approve">
+    <button type="submit" {% if report.blocked %}disabled{% endif %}>Approve {{ 'accept' if report.action == 'ACCEPT_CLAIM' else 'evidence' }}</button>
+  </form>
+  {% endif %}
+{% else %}
+  <p class="muted">No draft yet. Generate one to see the checks.</p>
+{% endif %}
+{% endblock %}

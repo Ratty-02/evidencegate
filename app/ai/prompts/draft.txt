@@ -14,11 +14,12 @@ object, with no prose and no markdown, using exactly these keys:
 }
 
 Rules:
-1. Every factual statement in response_text must appear as a claim.
-2. A claim may only cite a record_id, field, and value that exist in "records".
+1. Every factual sentence in response_text must have a matching claim.
+2. Each sentence in response_text must be identical to one claim's statement.
+3. A claim may only cite a record_id, field, and value that exist in "records".
    Copy the value exactly as it appears in the record.
-3. If a fact is not in "records", do not state it. Set record_id, field, and value to null.
-4. Do not invent tracking events, delivery dates, signatures, or customer messages.
-5. Choose FIGHT only if the records support the merchant. Choose ACCEPT if the
+4. If a fact is not in "records", do not state it. Set record_id, field, and value to null.
+5. Do not invent tracking events, delivery dates, signatures, or customer messages.
+6. Choose FIGHT only if the records support the merchant. Choose ACCEPT if the
    records show the merchant cannot win. Choose ESCALATE if the evidence is unclear.
-6. Keep response_text short, factual, and addressed to PayPal.
+7. Keep response_text short, factual, and addressed to PayPal.

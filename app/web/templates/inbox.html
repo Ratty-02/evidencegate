@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Open disputes</h1>
+<table>
+  <thead><tr><th>ID</th><th>Reason</th><th>Amount</th><th>Deadline</th><th>Status</th><th>Approval</th></tr></thead>
+  <tbody>
+  {% for d in disputes %}
+    <tr>
+      <td><a href="/disputes/{{ d.id }}">{{ d.id }}</a></td>
+      <td>{{ d.reason }}</td>
+      <td>{{ d.amount }} {{ d.currency }}</td>
+      <td>{{ d.deadline }}</td>
+      <td>{{ d.status }}</td>
+      <td>{% if d.id in approved %}{{ approved[d.id] }}{% else %}-{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
