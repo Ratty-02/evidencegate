@@ -1,0 +1,121 @@
+{
+  "summary": {
+    "controls_passed": 4,
+    "controls_total": 4,
+    "paraphrases_blocked": 7,
+    "paraphrases_total": 8,
+    "false_block_rate": 0.875
+  },
+  "cases": [
+    {
+      "kind": "control",
+      "response": "The item was delivered on 2026-10-06.",
+      "blocked": false,
+      "claims_supported": true,
+      "uncovered": [],
+      "false_block": false
+    },
+    {
+      "kind": "paraphrase",
+      "response": "The parcel reached the buyer on 2026-10-06.",
+      "blocked": true,
+      "claims_supported": true,
+      "uncovered": [
+        "The parcel reached the buyer on 2026-10-06."
+      ],
+      "false_block": true
+    },
+    {
+      "kind": "paraphrase",
+      "response": "Our tracking shows the order was delivered on 2026-10-06.",
+      "blocked": false,
+      "claims_supported": true,
+      "uncovered": [],
+      "false_block": false
+    },
+    {
+      "kind": "control",
+      "response": "The transaction amount was $49.00 USD.",
+      "blocked": false,
+      "claims_supported": true,
+      "uncovered": [],
+      "false_block": false
+    },
+    {
+      "kind": "paraphrase",
+      "response": "The buyer paid 49.00 USD for the order.",
+      "blocked": true,
+      "claims_supported": true,
+      "uncovered": [
+        "The buyer paid 49.00 USD for the order."
+      ],
+      "false_block": true
+    },
+    {
+      "kind": "paraphrase",
+      "response": "The customer was charged 49.00 USD.",
+      "blocked": true,
+      "claims_supported": true,
+      "uncovered": [
+        "The customer was charged 49.00 USD."
+      ],
+      "false_block": true
+    },
+    {
+      "kind": "control",
+      "response": "The order was placed on 2026-10-01.",
+      "blocked": false,
+      "claims_supported": true,
+      "uncovered": [],
+      "false_block": false
+    },
+    {
+      "kind": "paraphrase",
+      "response": "The purchase was made on 2026-10-01.",
+      "blocked": true,
+      "claims_supported": true,
+      "uncovered": [
+        "The purchase was made on 2026-10-01."
+      ],
+      "false_block": true
+    },
+    {
+      "kind": "paraphrase",
+      "response": "The buyer ordered the item on 2026-10-01.",
+      "blocked": true,
+      "claims_supported": true,
+      "uncovered": [
+        "The buyer ordered the item on 2026-10-01."
+      ],
+      "false_block": true
+    },
+    {
+      "kind": "control",
+      "response": "The item was shipped via FEDEX with tracking number 122533485.",
+      "blocked": false,
+      "claims_supported": true,
+      "uncovered": [],
+      "false_block": false
+    },
+    {
+      "kind": "paraphrase",
+      "response": "FEDEX carried the parcel under tracking number 122533485.",
+      "blocked": true,
+      "claims_supported": true,
+      "uncovered": [
+        "FEDEX carried the parcel under tracking number 122533485."
+      ],
+      "false_block": true
+    },
+    {
+      "kind": "paraphrase",
+      "response": "The package went out with FEDEX, tracking 122533485.",
+      "blocked": true,
+      "claims_supported": true,
+      "uncovered": [
+        "The package went out with FEDEX, tracking 122533485."
+      ],
+      "false_block": true
+    }
+  ]
+}

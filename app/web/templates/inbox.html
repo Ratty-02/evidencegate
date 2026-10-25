@@ -23,6 +23,17 @@
   </div>
 </section>
 
+{% if load_error %}
+<div class="alert-block reveal">{{ load_error }} Try again in a moment, or check your PayPal connection in Settings.</div>
+{% endif %}
+
+{% if not disputes and not load_error %}
+<section class="card empty-state reveal">
+  <img class="empty-mark float" src="/static/img/logo-mark.png" alt="">
+  <h2>No disputes yet</h2>
+  <p class="muted">When a customer opens a dispute, it appears here. Until then there is nothing to gate.</p>
+</section>
+{% else %}
 <div class="board">
   {% for key, label, tone in lanes %}
   <section class="lane lane-{{ tone }} reveal">
@@ -51,8 +62,5 @@
   </section>
   {% endfor %}
 </div>
-
-{% if not is_mock() and kpis.open == 0 %}
-<p class="empty-note">No open disputes in the PayPal sandbox yet. See docs/sandbox_limits.md for why, and how to create one.</p>
 {% endif %}
 {% endblock %}

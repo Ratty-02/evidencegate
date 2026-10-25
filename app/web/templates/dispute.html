@@ -50,9 +50,9 @@
     {% endfor %}
   </ul>
   {% endif %}
-  <form method="post" action="/disputes/{{ dispute.id }}/records" class="records-form">
+  <form method="post" action="/disputes/{{ dispute.id }}/records" class="records-form" enctype="multipart/form-data">
     <textarea name="csv_text" rows="5" class="csv" placeholder="record_id,field,value&#10;TRK-1001,status,DELIVERED"></textarea>
-    <div><button class="btn btn-ghost btn-sm" type="submit">Save records</button></div>
+    <div class="field-row"><label for="rfile">…or upload a CSV file</label><input id="rfile" type="file" name="file" accept=".csv,text/csv"></div><p class="muted small"><a href="/records/sample.csv">Download a sample CSV</a> (max 200 KB).</p><div><button class="btn btn-ghost btn-sm" type="submit">Save records</button></div>
   </form>
 </section>
 

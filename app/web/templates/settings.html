@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}PayPal connection{% endblock %}
+{% block content %}
+<section class="case-hero reveal">
+  <div>
+    <span class="kicker">Settings</span>
+    <h1>PayPal connection</h1>
+    <p class="muted">Connect your own PayPal REST app. Your secret is encrypted before it is stored, and it is never shown again.</p>
+  </div>
+</section>
+
+{% if error %}<div class="alert-block reveal">{{ error }}</div>{% endif %}
+{% if notice %}<div class="approved-card reveal"><div><strong>{{ notice }}</strong></div></div>{% endif %}
+{% if not key_ready %}<div class="alert-block reveal">The server has no CREDENTIAL_KEY set, so credentials cannot be saved. Ask the administrator to set it.</div>{% endif %}
+
+<div class="settings-grid">
+  <section class="panel reveal">
+    <div class="panel-head"><span class="kicker">Status</span></div>
+    {% if status %}
+      <p class="ok-text">Connected to PayPal {{ status.env }} (client ID ending {{ status.hint }})</p>
+      <p class="muted small">Saved {{ status.updated_at }}.</p>
+      <div class="toolbar">
+        <form method="post" action="/settings/paypal/test"><button class="btn btn-ghost btn-sm" type="submit">Test connection</button></form>
+        <form method="post" action="/settings/paypal/delete"><button class="btn btn-ghost btn-sm" type="submit">Disconnect</button></form>
+      </div>
+    {% else %}
+      <p class="muted">Not connected. This account uses the demo data.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel reveal delay-1">
+    <div class="panel-head"><span class="kicker">Connect PayPal</span></div>
+    <form method="post" action="/settings/paypal" class="settings-form">
+      <div class="field-row"><label for="cid">Client ID</label><input id="cid" name="client_id" required autocomplete="off"></div>
+      <div class="field-row"><label for="sec">Client secret</label><input id="sec" name="client_secret" type="password" required autocomplete="off"></div>
+      <div class="field-row"><label for="env">Environment</label>
+        <select id="env" name="env">
+          <option value="sandbox">Sandbox (testing)</option>
+          <option value="live">Live (real disputes and money)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit" {% if not key_ready %}disabled{% endif %}>Save encrypted credentials</button>
+    </form>
+    <p class="muted small">Use sandbox credentials while testing. Live credentials act on real merchant disputes.</p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}EvidenceGate{% endblock %} · EvidenceGate</title>
+  <link rel="icon" href="/static/img/logo-mark.png">
+  <style>
+    /* Inline on purpose: these pages must look right even if /static/style.css fails to load. */
+    :root { --deep:#0B4F55; --teal:#12777A; --aqua:#2FC4B2; --green:#2BB673; --ink:#0A2E32; --muted:#58777A; --line:rgba(11,79,85,.13); --coral:#8A2A22; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #EEF8F4; -webkit-font-smoothing: antialiased; }
+    .shell { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(340px, 480px); min-height: 100vh; }
+    .side { background: linear-gradient(160deg, var(--deep) 0%, var(--teal) 60%, #1E9C86 100%); color: #E6FAF4; padding: 56px 64px; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+    .logo { background: #F4FBF8; border-radius: 18px; padding: 12px 18px; width: fit-content; }
+    .logo img { display: block; height: 50px; width: auto; }
+    .headline { font: 800 52px/1.05 Manrope, Inter, system-ui, sans-serif; color: #fff; letter-spacing: -.03em; margin: 22px 0 0; }
+    .headline span { color: #7FF0D2; }
+    .lede { font-size: 17px; color: #BDEEE2; max-width: 460px; margin: 0; }
+    .points { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 12px; }
+    .points li { position: relative; padding-left: 30px; font-weight: 600; color: #E6FAF4; }
+    .points li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 20px; height: 20px; border-radius: 6px; background: rgba(127,240,210,.18); color: #7FF0D2; font-size: 12px; display: grid; place-items: center; }
+    .fine { font-size: 13px; color: #9ED9CB; margin: 26px 0 0; }
+    .main { display: grid; place-items: center; padding: 40px 24px; }
+    .card { width: 100%; background: #fff; border-radius: 24px; padding: 36px; box-shadow: 0 30px 60px -30px rgba(11,79,85,.35); border: 1px solid var(--line); }
+    .tabs { display: flex; gap: 6px; background: #EEF5F3; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
+    .tabs a { flex: 1; text-align: center; padding: 9px 12px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); text-decoration: none; }
+    .tabs a.on { background: #fff; color: var(--deep); box-shadow: 0 2px 8px -3px rgba(11,79,85,.3); }
+    .card h2 { font: 800 26px/1.2 Manrope, Inter, system-ui, sans-serif; color: var(--deep); margin: 0 0 6px; letter-spacing: -.02em; }
+    .sub { color: var(--muted); font-size: 14.5px; margin: 0 0 22px; }
+    .error { background: #FCE4E0; color: var(--coral); border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 600; margin-bottom: 18px; }
+    .ok { background: #DDF5E8; color: #1A8F59; border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 600; margin-bottom: 18px; }
+    .form { display: grid; gap: 16px; }
+    .field { display: grid; gap: 7px; }
+    .field label { font-size: 13.5px; font-weight: 600; color: var(--deep); }
+    .field input { font: 15px Inter, system-ui, sans-serif; padding: 13px 14px; border-radius: 12px; border: 1px solid #CFE2DD; background: #fff; color: var(--ink); width: 100%; }
+    .field input:focus { outline: none; border-color: var(--aqua); box-shadow: 0 0 0 4px rgba(47,196,178,.2); }
+    .submit { margin-top: 6px; border: 0; border-radius: 12px; padding: 14px; font: 700 15px Manrope, Inter, system-ui, sans-serif; color: #fff; cursor: pointer; background: linear-gradient(135deg, var(--teal), var(--deep)); box-shadow: 0 12px 24px -12px rgba(11,79,85,.6); }
+    .submit:disabled { opacity: .6; cursor: wait; }
+    .ghost { border: 1px solid var(--line); background: #fff; color: var(--deep); border-radius: 12px; padding: 11px 14px; font: 700 14px Manrope, Inter, system-ui, sans-serif; cursor: pointer; width: 100%; }
+    .switch { text-align: center; font-size: 14px; color: var(--muted); margin: 22px 0 0; }
+    .switch a { color: var(--teal); font-weight: 700; text-decoration: none; }
+    .codebox { margin: 18px 0; padding: 14px 16px; border-radius: 14px; background: #FFF6DF; border: 1px dashed #E7B44F; font-size: 13.5px; }
+    .codebox a { word-break: break-all; color: var(--deep); font-weight: 600; }
+    .codebox strong { display: block; margin-bottom: 4px; color: #7A5200; }
+    .resend { margin-top: 14px; }
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; }
+      .side { padding: 36px 28px; }
+      .headline { font-size: 38px; }
+      .main { padding: 28px 18px 48px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="logo"><img src="/static/img/logo-lockup.png" alt="EvidenceGate"></div>
+      <h1 class="headline">Gate the <span>Guesswork</span>.</h1>
+      <p class="lede">Every claim in a dispute response is checked against a record before anyone can approve it.</p>
+      <ul class="points">
+        <li>Claims must cite a real record</li>
+        <li>Blocked drafts cannot be approved</li>
+        <li>Every approval is recorded</li>
+        <li>Your workspace is private to your account</li>
+      </ul>
+      <p class="fine">Prototype. Uses mock PayPal data unless a merchant connects their own PayPal app.</p>
+    </aside>
+    <main class="main">
+      <div class="card">
+        {% block card %}{% endblock %}
+      </div>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# EvidenceGate
+﻿# EvidenceGate
 
 **Gate the Guesswork.** EvidenceGate helps merchants answer PayPal payment disputes. An AI model drafts the response, and a deterministic gate checks every claim against a record before anyone can approve it. A person approves each submission.
 
@@ -112,3 +112,49 @@ production version would store each merchant's own PayPal credentials, encrypted
 
 **Upgrading from the single-workspace version:** delete `evidencegate.db` once. This clears
 local drafts, approvals, and records. The app refuses to start on the old format and tells you so.
+
+## Accounts and security
+
+- **Email verification:** new accounts must verify their email before opening the case board. Links expire after 24 hours and work once.
+- **Password reset:** links expire after one hour and work once. The reset page is the same whether or not an account exists, so the form cannot be used to find accounts.
+- **Sign-in throttling:** after 5 failed attempts for an email in 15 minutes, sign-in is refused for that email. A successful sign-in clears the count. This limit is per email and per server; an attacker can lock out a victim's email, which is a known trade-off.
+- **Email delivery:** `EMAIL_MODE=dev` shows links on the page and sends nothing. That is for local demos only, because anyone can then verify any address. Set `EMAIL_MODE=smtp` with the `SMTP_*` settings for any public deployment.
+- **Known gap:** signed-in sessions cannot be revoked one by one. Changing `SESSION_SECRET` signs everyone out, and resetting a password does not end existing sessions.
+
+## Connecting a merchant's PayPal account
+
+Each account can connect its own PayPal REST app under **Settings â†’ PayPal connection**. The client secret is encrypted with `CREDENTIAL_KEY` (Fernet) before it is stored, and the page never shows it again. Connecting an account switches that account to live PayPal data for its own disputes. Without `CREDENTIAL_KEY`, credentials cannot be saved.
+
+## Upgrading an existing database
+
+Older databases are migrated on startup: accounts created before verification existed stay usable. The single-workspace format still requires deleting `evidencegate.db` once.
+
+## For judges: run it in five minutes
+
+No PayPal credentials are needed. The demo runs on labeled mock data.
+
+```powershell
+git clone https://github.com/Ratty-02/evidencegate.git
+cd evidencegate
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+```
+
+In `.env`, set `SESSION_SECRET`, `CREDENTIAL_KEY` (generate with the command in `.env.example`), and `LLM_API_KEY` (a Groq key). Leave `PAYPAL_MOCK=true` and `EMAIL_MODE=dev`.
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+1. Open http://127.0.0.1:8000 and create an account. The verification link appears on the page (demo mode).
+2. Open the case board, then a case. Generate a draft, read the claims, and see the gate verdict.
+3. Approve a passing case, or try a blocked one to see the gate refuse.
+4. Run `python -m evals.run_eval` for the labeled evaluation, and `python -m scripts.check_submission --tests` for the repository checks.
+
+Documentation: `docs/problem_statement.md`, `docs/architecture.md`, `docs/sandbox_limits.md`.
+
+> **Before submitting:** replace `Ratty-02` in the clone command above with your GitHub username, so judges can clone the repository.
+
+

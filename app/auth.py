@@ -75,3 +75,16 @@ def read_session_token(token: str, now: float | None = None) -> int | None:
     if current - issued > MAX_AGE_SECONDS or issued - current > 300:
         return None
     return user_id
+
+
+TOKEN_TTL_SECONDS = {"verify": 24 * 3600, "reset": 3600}
+
+
+def hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def new_token() -> tuple[str, str]:
+    """Returns (raw token for the link, hash to store). Only the hash is kept."""
+    raw = secrets.token_urlsafe(32)
+    return raw, hash_token(raw)

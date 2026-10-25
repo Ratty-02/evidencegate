@@ -1,11 +1,9 @@
 """Web routes.
 
-Protected (signed-in users only): case board, case pages, records, drafts,
-approval. Every database call uses the signed-in user's id, so one merchant
-never sees another merchant's drafts, records, or approvals.
+Protected (signed-in, verified): case board, case pages, records, drafts,
+approval, PayPal settings. Every database call uses the signed-in user's id.
 
-Public: home and health (optional_user shows the right header) and the PayPal
-webhook, which is checked by signature instead of a session.
+Public: home and health, plus the PayPal webhook (checked by signature).
 """
 import json
 import uuid
@@ -15,8 +13,8 @@ from pathlib import Path
 from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app import config, db
 from app.ai.llm import GroqClient, LLMOutputError
@@ -26,12 +24,16 @@ from app.paypal.mock_client import DisputeNotFound, MockPayPalClient
 from app.paypal.source import RealDisputeSource
 from app.records import parse_records_csv
 from app.rules.paypal_evidence import ACTIONABLE_STATUS
+from app.secrets_box import KeyMissing
+from app.services import credentials
 from app.services.submission import SubmissionRefused, submit_report
 from app.web.deps import current_user, optional_user
 from app.web.templating import TEMPLATES
 
 ROOT = Path(__file__).resolve().parents[2]
 OFFLINE_RESULTS = ROOT / "evals" / "results" / "offline.json"
+MAX_UPLOAD_BYTES = 200_000
+SAMPLE_RECORDS = "record_id,field,value\nTRK-1001,status,DELIVERED\nTRK-1001,delivered_on,2026-10-06\n"
 
 router = APIRouter(dependencies=[Depends(current_user)])
 public_router = APIRouter(dependencies=[Depends(optional_user)])
@@ -39,7 +41,18 @@ public_router = APIRouter(dependencies=[Depends(optional_user)])
 _mock_source = MockPayPalClient()
 
 
-def get_paypal():
+def _client_for(creds: dict) -> RealPayPalClient:
+    return RealPayPalClient(client_id=creds["client_id"], client_secret=creds["client_secret"], env=creds["env"])
+
+
+def get_paypal(user=Depends(current_user)):
+    """A merchant's own PayPal app if connected; otherwise demo data or the server default."""
+    try:
+        creds = credentials.load(user["id"])
+    except KeyMissing as exc:
+        raise HTTPException(503, str(exc))
+    if creds:
+        return RealDisputeSource(_client_for(creds))
     return _mock_source if config.PAYPAL_MOCK else RealDisputeSource(RealPayPalClient())
 
 
@@ -47,8 +60,14 @@ def get_llm() -> GroqClient:
     return GroqClient()
 
 
-def get_submitter():
-    """None in mock mode (decision recorded only). A real client otherwise."""
+def get_submitter(user=Depends(current_user)):
+    """None means demo mode: the decision is recorded but not sent."""
+    try:
+        creds = credentials.load(user["id"])
+    except KeyMissing as exc:
+        raise HTTPException(503, str(exc))
+    if creds:
+        return _client_for(creds)
     return None if config.PAYPAL_MOCK else RealPayPalClient()
 
 
@@ -156,15 +175,17 @@ async def paypal_webhook(request: Request, verifier=Depends(get_verifier)):
     return {"ok": True}
 
 
-# ---- protected ----
+# ---- protected: case board and case pages ----
 
 @router.get("/disputes", response_class=HTMLResponse)
 def inbox(request: Request, notice: str | None = None,
           user=Depends(current_user), paypal=Depends(get_paypal)):
+    load_error = None
     try:
         raw = paypal.list_disputes()
     except PayPalError as exc:
-        raise HTTPException(502, f"could not load disputes from PayPal: {exc}")
+        raw = []
+        load_error = f"Could not load disputes from PayPal. {exc}"
     rows = [
         decorate(d, current_report(user["id"], d["id"], paypal), db.get_approval(user["id"], d["id"]))
         for d in raw
@@ -177,7 +198,7 @@ def inbox(request: Request, notice: str | None = None,
         "approved": sum(1 for r in rows if r["approved_action"]),
     }
     return TEMPLATES.TemplateResponse(request, "inbox.html", {
-        "disputes": rows, "kpis": kpis, "notice": notice,
+        "disputes": rows, "kpis": kpis, "notice": notice, "load_error": load_error,
     })
 
 
@@ -204,25 +225,45 @@ def detail(dispute_id: str, request: Request, error: str | None = None,
     })
 
 
+# ---- protected: records ----
+
+@router.get("/records/sample.csv")
+def sample_records():
+    return Response(SAMPLE_RECORDS, media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="records-sample.csv"'})
+
+
 @router.post("/disputes/{dispute_id}/records")
-def save_records(dispute_id: str, csv_text: str = Form(""),
+def save_records(dispute_id: str, csv_text: str = Form(""), file: UploadFile | None = File(None),
                  user=Depends(current_user), paypal=Depends(get_paypal)):
     try:
         paypal.get_dispute(dispute_id)
     except DisputeNotFound:
         raise HTTPException(404, f"no dispute {dispute_id}")
+
+    text = csv_text
+    if file is not None and file.filename:
+        raw = file.file.read(MAX_UPLOAD_BYTES + 1)
+        if len(raw) > MAX_UPLOAD_BYTES:
+            return RedirectResponse(f"/disputes/{dispute_id}?error=File%20is%20larger%20than%20200%20KB.", status_code=303)
+        try:
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return RedirectResponse(f"/disputes/{dispute_id}?error=File%20must%20be%20UTF-8%20text.", status_code=303)
+
     try:
-        mapping = parse_records_csv(csv_text)
+        mapping = parse_records_csv(text)
     except ValueError as exc:
         return RedirectResponse(f"/disputes/{dispute_id}?error={quote(str(exc))}", status_code=303)
     db.replace_records(user["id"], dispute_id, mapping)
-    db.delete_approval(user["id"], dispute_id)  # changed facts need a new approval
+    db.delete_approval(user["id"], dispute_id)
     return _case_redirect(dispute_id, "Records saved. Approval reset; check the gate again.")
 
 
+# ---- protected: draft and approval ----
+
 @router.post("/disputes/{dispute_id}/draft")
-def draft(dispute_id: str, user=Depends(current_user),
-          paypal=Depends(get_paypal), llm=Depends(get_llm)):
+def draft(dispute_id: str, user=Depends(current_user), paypal=Depends(get_paypal), llm=Depends(get_llm)):
     try:
         report = run_draft(dispute_id, llm=llm, paypal=paypal,
                            merchant_records=db.get_records(user["id"], dispute_id))
@@ -231,13 +272,13 @@ def draft(dispute_id: str, user=Depends(current_user),
     except (LLMOutputError, httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(502, f"model error: {exc}")
     db.save_draft(user["id"], dispute_id, report.draft)
-    db.delete_approval(user["id"], dispute_id)  # a new draft needs a new approval
+    db.delete_approval(user["id"], dispute_id)
     return _case_redirect(dispute_id, "Draft ready. Review the gate before approving.")
 
 
 @router.post("/disputes/{dispute_id}/approve")
-def approve(dispute_id: str, user=Depends(current_user),
-            paypal=Depends(get_paypal), submitter=Depends(get_submitter)):
+def approve(dispute_id: str, user=Depends(current_user), paypal=Depends(get_paypal),
+            submitter=Depends(get_submitter)):
     report = current_report(user["id"], dispute_id, paypal)
     if report is None:
         raise HTTPException(400, "generate a draft first")
@@ -259,3 +300,50 @@ def approve(dispute_id: str, user=Depends(current_user),
     db.save_approval(user["id"], dispute_id, report.action, request_id, paypal_response)
     notice = "Submitted to PayPal" if submitter is not None else "Approved (recorded only)"
     return _case_redirect(dispute_id, notice)
+
+
+# ---- protected: PayPal connection settings ----
+
+@router.get("/settings/paypal", response_class=HTMLResponse)
+def paypal_settings(request: Request, notice: str | None = None, error: str | None = None,
+                    user=Depends(current_user)):
+    return TEMPLATES.TemplateResponse(request, "settings.html", {
+        "status": credentials.status(user["id"]),
+        "key_ready": bool(config.CREDENTIAL_KEY),
+        "notice": notice,
+        "error": error,
+    })
+
+
+@router.post("/settings/paypal")
+def save_paypal(client_id: str = Form(""), client_secret: str = Form(""), env: str = Form("sandbox"),
+                user=Depends(current_user)):
+    try:
+        credentials.save(user["id"], client_id.strip(), client_secret.strip(), env)
+    except (ValueError, KeyMissing) as exc:
+        return RedirectResponse(f"/settings/paypal?error={quote(str(exc))}", status_code=303)
+    return RedirectResponse(
+        "/settings/paypal?notice=" + quote(f"Credentials saved and encrypted. This account now reads PayPal {env} data."),
+        status_code=303)
+
+
+@router.post("/settings/paypal/test")
+def test_paypal(user=Depends(current_user)):
+    try:
+        creds = credentials.load(user["id"])
+    except KeyMissing as exc:
+        return RedirectResponse(f"/settings/paypal?error={quote(str(exc))}", status_code=303)
+    if creds is None:
+        return RedirectResponse("/settings/paypal?error=Save%20your%20credentials%20first.", status_code=303)
+    try:
+        _client_for(creds).access_token()
+    except PayPalError as exc:
+        return RedirectResponse(f"/settings/paypal?error={quote(str(exc))}", status_code=303)
+    return RedirectResponse("/settings/paypal?notice=" + quote("PayPal accepted these credentials."), status_code=303)
+
+
+@router.post("/settings/paypal/delete")
+def delete_paypal(user=Depends(current_user)):
+    credentials.remove(user["id"])
+    return RedirectResponse("/settings/paypal?notice=Disconnected.%20This%20account%20uses%20the%20demo%20data.",
+                            status_code=303)

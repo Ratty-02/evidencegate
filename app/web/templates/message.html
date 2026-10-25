@@ -1,0 +1,14 @@
+{% extends "auth_base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block card %}
+  <h2>{{ title }}</h2>
+  <p class="sub">{{ text }}</p>
+  {% if dev_link %}
+  <div class="codebox">
+    <strong>Demo mode</strong>
+    Email delivery is off, so the link is shown here instead:<br>
+    <a href="{{ dev_link }}">{{ dev_link }}</a>
+  </div>
+  {% endif %}
+  <p class="switch"><a href="{{ action_href or '/login' }}">{{ action_label or 'Back to sign in' }}</a></p>
+{% endblock %}

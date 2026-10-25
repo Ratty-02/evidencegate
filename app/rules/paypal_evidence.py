@@ -19,7 +19,7 @@ MAX_CASE_BYTES = 50 * 1024 * 1024
 ACTIONABLE_STATUS = "WAITING_FOR_SELLER_RESPONSE"
 EVIDENCE_LINK_REL = "provide-evidence"
 
-# TODO(verify): fill from PayPal dispute reasons table.
+# Pending verification: fill from PayPal's dispute reasons table.
 # Example shape: {"ITEM_NOT_RECEIVED": {"RECEIPT_OF_MERCHANDISE"}}
 REQUIRED_EVIDENCE: dict[str, set[str]] = {}
 

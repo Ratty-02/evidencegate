@@ -21,6 +21,7 @@
       <div class="dock-links">
         <a href="/" class="{{ 'on' if request.url.path == '/' }}">Home</a>
         <a href="/disputes" class="{{ 'on' if request.url.path.startswith('/disputes') }}">Case board</a>
+        {% if request.state.user is defined and request.state.user %}<a href="/settings/paypal" class="{{ 'on' if request.url.path.startswith('/settings') }}">Settings</a>{% endif %}
       </div>
       <span class="live"><i></i>{{ 'Mock PayPal data' if is_mock() else 'PayPal sandbox' }}</span>
       {% if request.state.user is defined and request.state.user %}

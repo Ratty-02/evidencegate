@@ -1,0 +1,20 @@
+{% extends "auth_base.html" %}
+{% block title %}Check your email{% endblock %}
+{% block card %}
+  <h2>Check your email</h2>
+  <p class="sub">We sent a verification link to <strong>{{ email }}</strong>. Open it to activate your account, then sign in.</p>
+
+  {% if dev_link %}
+  <div class="codebox">
+    <strong>Demo mode</strong>
+    Email delivery is off, so the link is shown here instead:<br>
+    <a href="{{ dev_link }}">{{ dev_link }}</a>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/resend-verification" class="form resend">
+    <input type="hidden" name="email" value="{{ email }}">
+    <button class="ghost" type="submit">Resend verification email</button>
+  </form>
+  <p class="switch"><a href="/login">Back to sign in</a></p>
+{% endblock %}

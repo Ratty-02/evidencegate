@@ -1,11 +1,11 @@
-"""SQLite storage, scoped per user (multi-tenant).
+"""SQLite storage.
 
-Every merchant workspace is keyed by user_id: drafts, approvals, and merchant
-records never cross accounts. Webhook events are recorded for the platform
-and are not shown to merchants yet.
+Merchant workspaces are scoped by user_id (drafts, approvals, records).
+Accounts hold verification and login state. Auth tokens and login attempts
+are stored hashed or as counts, never as raw secrets. PayPal credentials are
+stored encrypted (see app/secrets_box.py). Webhook events are platform-wide.
 
-If an older single-workspace database is found, startup stops with a clear
-message instead of mixing data.
+If an older single-workspace database is found, startup stops with a clear message.
 """
 import json
 import sqlite3
@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    email_verified INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS drafts (
@@ -64,6 +65,26 @@ CREATE TABLE IF NOT EXISTS events (
     received_at TEXT NOT NULL,
     payload_json TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    purpose TEXT NOT NULL,
+    expires_at REAL NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS paypal_credentials (
+    user_id INTEGER PRIMARY KEY,
+    env TEXT NOT NULL,
+    client_id_enc TEXT NOT NULL,
+    secret_enc TEXT NOT NULL,
+    client_hint TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -85,42 +106,139 @@ def _db():
 
 def init_db() -> None:
     with _db() as conn:
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(drafts)")}
-    if "user_id" not in columns:
-        raise RuntimeError(
-            "evidencegate.db uses the old single-workspace format. Delete the file "
-            "(this clears local drafts, approvals, and records) and restart the app."
-        )
+        draft_cols = {row["name"] for row in conn.execute("PRAGMA table_info(drafts)")}
+        if "user_id" not in draft_cols:
+            raise RuntimeError(
+                "evidencegate.db uses the old single-workspace format. Delete the file "
+                "(this clears local drafts, approvals, and records) and restart the app."
+            )
+        user_cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+        if "email_verified" not in user_cols:
+            # Accounts created before verification existed stay usable.
+            conn.execute("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1")
 
 
 # ---- users ----
 
-def create_user(email: str, password_hash: str) -> dict:
+def create_user(email: str, password_hash: str, verified: bool = False) -> dict:
     try:
         with _db() as conn:
             cur = conn.execute(
-                "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
-                (email, password_hash, _now()),
+                "INSERT INTO users (email, password_hash, email_verified, created_at) VALUES (?, ?, ?, ?)",
+                (email, password_hash, 1 if verified else 0, _now()),
             )
             user_id = cur.lastrowid
     except sqlite3.IntegrityError:
         raise ValueError("an account with that email already exists")
-    return {"id": user_id, "email": email}
+    return {"id": user_id, "email": email, "email_verified": bool(verified)}
 
 
 def get_user_by_email(email: str) -> dict | None:
     """Includes password_hash. Only the sign-in check should use this."""
     with _db() as conn:
         row = conn.execute(
-            "SELECT id, email, password_hash FROM users WHERE email = ?", (email,)
+            "SELECT id, email, password_hash, email_verified FROM users WHERE email = ?", (email,)
         ).fetchone()
     return dict(row) if row else None
 
 
 def get_user(user_id: int) -> dict | None:
     with _db() as conn:
-        row = conn.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT id, email, email_verified FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
     return dict(row) if row else None
+
+
+def set_email_verified(user_id: int) -> None:
+    with _db() as conn:
+        conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,))
+
+
+def update_password(user_id: int, password_hash: str) -> None:
+    with _db() as conn:
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+
+
+# ---- one-time tokens (verification and password reset) ----
+
+def create_auth_token(token_hash: str, user_id: int, purpose: str, expires_at: float) -> None:
+    with _db() as conn:
+        conn.execute(
+            "INSERT INTO auth_tokens (token_hash, user_id, purpose, expires_at, used) VALUES (?, ?, ?, ?, 0)",
+            (token_hash, user_id, purpose, expires_at),
+        )
+
+
+def _token_user(conn, token_hash: str, purpose: str, now: float) -> int | None:
+    row = conn.execute(
+        "SELECT user_id, expires_at, used FROM auth_tokens WHERE token_hash = ? AND purpose = ?",
+        (token_hash, purpose),
+    ).fetchone()
+    if row is None or row["used"] or row["expires_at"] < now:
+        return None
+    return row["user_id"]
+
+
+def peek_auth_token(token_hash: str, purpose: str, now: float) -> int | None:
+    with _db() as conn:
+        return _token_user(conn, token_hash, purpose, now)
+
+
+def consume_auth_token(token_hash: str, purpose: str, now: float) -> int | None:
+    """Valid once: returns the user id and marks the token used."""
+    with _db() as conn:
+        user_id = _token_user(conn, token_hash, purpose, now)
+        if user_id is not None:
+            conn.execute("UPDATE auth_tokens SET used = 1 WHERE token_hash = ?", (token_hash,))
+        return user_id
+
+
+# ---- sign-in throttling ----
+
+def record_login_failure(key: str, now: float) -> None:
+    with _db() as conn:
+        conn.execute("INSERT INTO login_attempts (key, at) VALUES (?, ?)", (key, now))
+
+
+def count_login_failures(key: str, since: float) -> int:
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM login_attempts WHERE key = ? AND at >= ?", (key, since)
+        ).fetchone()
+    return int(row["n"])
+
+
+def clear_login_failures(key: str) -> None:
+    with _db() as conn:
+        conn.execute("DELETE FROM login_attempts WHERE key = ?", (key,))
+
+
+# ---- per-merchant PayPal credentials (encrypted) ----
+
+def save_paypal_credentials(user_id: int, env: str, client_id_enc: str, secret_enc: str,
+                            hint: str, updated_at: str) -> None:
+    with _db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO paypal_credentials "
+            "(user_id, env, client_id_enc, secret_enc, client_hint, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, env, client_id_enc, secret_enc, hint, updated_at),
+        )
+
+
+def get_paypal_credentials(user_id: int) -> dict | None:
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT env, client_id_enc, secret_enc, client_hint, updated_at FROM paypal_credentials "
+            "WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_paypal_credentials(user_id: int) -> None:
+    with _db() as conn:
+        conn.execute("DELETE FROM paypal_credentials WHERE user_id = ?", (user_id,))
 
 
 # ---- per-user workspace ----

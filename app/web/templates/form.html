@@ -1,0 +1,22 @@
+{% extends "auth_base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block card %}
+  <h2>{{ title }}</h2>
+  <p class="sub">{{ lede }}</p>
+  {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ action }}" class="form" data-loading="Please wait…">
+    {% for name, value in (hidden or {}).items() %}
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {% endfor %}
+    {% for f in fields %}
+    <div class="field">
+      <label for="{{ f.name }}">{{ f.label }}</label>
+      <input id="{{ f.name }}" name="{{ f.name }}" type="{{ f.type }}" value="{{ f.value or '' }}" required
+             {% if f.minlength %}minlength="{{ f.minlength }}"{% endif %}
+             autocomplete="{{ f.autocomplete }}" placeholder="{{ f.placeholder or '' }}">
+    </div>
+    {% endfor %}
+    <button class="submit" type="submit">{{ submit }}</button>
+  </form>
+  <p class="switch"><a href="/login">Back to sign in</a></p>
+{% endblock %}

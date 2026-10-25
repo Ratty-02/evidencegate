@@ -1,4 +1,16 @@
+# secrets and local state
 .env
 *.db
+fixtures/sandbox/*.tmp
+
+# Python
 __pycache__/
+*.pyc
 .venv/
+.pytest_cache/
+
+# editors and OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
